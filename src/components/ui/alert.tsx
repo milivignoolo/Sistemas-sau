@@ -13,6 +13,7 @@ const alertVariants = cva(
         default: "bg-background text-foreground [&>svg]:text-foreground", // Specify default icon color
         destructive:
           "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
+        // Added specific success styles matching the usage in login-form
         success:
            "border-green-500/50 text-green-700 bg-green-50 dark:border-green-700 dark:text-green-300 dark:bg-green-950 [&>svg]:text-green-600 dark:[&>svg]:text-green-400",
         info:
@@ -32,7 +33,7 @@ const Alert = React.forwardRef<
     // Determine icon based on variant
     const Icon =
         variant === "destructive" ? AlertCircle :
-        variant === "success" ? CheckSquare :
+        variant === "success" ? CheckSquare : // Use CheckSquare for success
         variant === "info" ? Info :
         TriangleAlert; // Default icon (can be TriangleAlert or Info)
 

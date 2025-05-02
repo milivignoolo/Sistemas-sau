@@ -25,34 +25,30 @@ import Link from 'next/link';
 
 // --- Mock Authentication Function ---
 async function authenticateUser(username: string, password: string) {
-  console.log(`Attempting to authenticate user: ${username}`);
+  console.log(`Attempting to authenticate user: ${username} with password: ${password}`);
   await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
   // Mock credentials (replace with actual backend verification)
-  // Use the same credentials used during mock registration for consistency
-  const validStudent = { username: '12345', password: 'password123' }; // Matches student registration mock
-  const validCompany = { username: '30-12345678-9', password: 'password123' }; // Matches company registration mock
+  // Ensure these match the credentials used during mock registration
+  const validStudent = { username: '12345', password: 'password123' }; // From student registration mock
+  const validCompany = { username: '30-12345678-9', password: 'password123' }; // From company registration mock
 
-  if ((username === validStudent.username || username === validCompany.username) && password === 'password123') {
-    console.log(`Authentication successful for user: ${username}`);
-    // Determine user type based on username format (simple example)
-    // Student Legajo: Only digits
-    // Company CUIT: XX-XXXXXXXX-X format
-    let userType: 'student' | 'company' | 'unknown' = 'unknown';
-    if (/^\d+$/.test(username)) {
-        userType = 'student';
-    } else if (/^\d{2}-\d{8}-\d{1}$/.test(username)) {
-        userType = 'company';
-    }
+  let isAuthenticated = false;
+  let userType: 'student' | 'company' | 'unknown' = 'unknown';
 
-     if (userType === 'unknown') {
-        console.error(`Could not determine user type for username: ${username}`);
-        throw new Error('Formato de usuario inválido.');
-     }
+  if (username === validStudent.username && password === validStudent.password) {
+    isAuthenticated = true;
+    userType = 'student';
+  } else if (username === validCompany.username && password === validCompany.password) {
+    isAuthenticated = true;
+    userType = 'company';
+  }
 
+  if (isAuthenticated) {
+    console.log(`Authentication successful for user: ${username}, Type: ${userType}`);
     return { success: true, userType: userType, username: username };
   } else {
-    console.error(`Authentication failed for user: ${username}`);
+    console.error(`Authentication failed for user: ${username}. Provided password: ${password}. Expected student pass: ${validStudent.password}, Expected company pass: ${validCompany.password}`);
     throw new Error('Usuario o contraseña incorrectos.');
   }
 }
@@ -88,13 +84,14 @@ export function LoginForm() {
         toast({
           title: 'Inicio de Sesión Exitoso',
           description: `Bienvenido/a de nuevo, ${result.username}. (Tipo: ${result.userType === 'student' ? 'Estudiante' : 'Empresa'})`,
-          variant: 'success', // Use success variant
+          // Removed success variant to use default style
         });
         setLoginSuccess(true);
         // TODO: Redirect to appropriate dashboard based on userType
         // e.g., router.push(result.userType === 'student' ? '/student/dashboard' : '/company/dashboard');
         // form.reset(); // Clear form on success - optional, might be better to leave it for viewing success message
       }
+      // No explicit else needed because authenticateUser throws on failure
     } catch (error: any) {
       console.error("Login error:", error);
       setErrorMessage(error.message || 'Error al iniciar sesión.');
@@ -116,10 +113,11 @@ export function LoginForm() {
           </Alert>
         )}
          {loginSuccess && (
-          <Alert variant="success">
-            <LogIn className="h-4 w-4" />
-            <AlertTitle>¡Éxito!</AlertTitle>
-            <AlertDescription>Has iniciado sesión correctamente. Serás redirigido en breve.</AlertDescription>
+          // Using default alert style for success message
+          <Alert variant="default" className="border-green-500/50 text-green-700 bg-green-50 dark:border-green-700 dark:text-green-300 dark:bg-green-950">
+            <LogIn className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <AlertTitle className="text-green-800 dark:text-green-200">¡Éxito!</AlertTitle>
+            <AlertDescription className="text-green-700 dark:text-green-300">Has iniciado sesión correctamente. Serás redirigido en breve.</AlertDescription>
             {/* TODO: Add link to dashboard here later or implement redirect */}
           </Alert>
         )}
