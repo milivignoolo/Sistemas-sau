@@ -71,9 +71,10 @@ async function authenticateUser(username: string, password: string): Promise<{ s
         }
   } else {
      console.log("No user profile found in localStorage.");
-     // For mock testing, let's add default mock users if nothing is stored
+     // For mock testing, add default mock users if nothing is stored
      const validStudent = { username: '12345', password: 'password123', userType: 'student' };
-     const validCompany = { username: '30123456789', password: 'password123', userType: 'company' }; // Use CUIT without dashes
+     // Updated mock company credentials as requested
+     const validCompany = { username: '12345678901', password: 'password123', userType: 'company' };
 
       if (username === validStudent.username && password === validStudent.password) {
         isAuthenticated = true;
