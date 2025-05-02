@@ -110,6 +110,7 @@ export default function StudentProfilePage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Start loading initially
   const [isEditing, setIsEditing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileFormSchema),
@@ -147,26 +148,38 @@ export default function StudentProfilePage() {
   async function onSubmit(values: ProfileFormData) {
     if (!userProfile) return;
     setIsLoading(true);
+    setErrorMessage(null);
     console.log('Saving profile updates:', values);
 
     // Simulate saving to backend/localStorage
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    const updatedProfile: UserProfile = {
-      ...userProfile,
-      profile: values, // Update the nested profile object
-    };
+    try {
+        const updatedProfile: UserProfile = {
+          ...userProfile,
+          profile: values, // Update the nested profile object
+        };
 
-    safeLocalStorageSet('userProfile', updatedProfile);
-    setUserProfile(updatedProfile); // Update local state to reflect changes
+        safeLocalStorageSet('userProfile', updatedProfile);
+        setUserProfile(updatedProfile); // Update local state to reflect changes
 
-    toast({
-      title: 'Perfil Actualizado',
-      description: 'Tus cambios han sido guardados.',
-      variant: 'success',
-    });
-    setIsEditing(false); // Exit editing mode
-    setIsLoading(false);
+        toast({
+          title: 'Perfil Actualizado',
+          description: 'Tus cambios han sido guardados.',
+          variant: 'success',
+        });
+        setIsEditing(false); // Exit editing mode
+    } catch (error: any) {
+         console.error("Profile update error:", error);
+         setErrorMessage(error.message || 'No se pudo guardar el perfil.');
+         toast({
+             title: 'Error',
+             description: 'No se pudieron guardar los cambios.',
+             variant: 'destructive',
+         });
+    } finally {
+         setIsLoading(false);
+    }
   }
 
   // --- Render Logic ---
@@ -291,22 +304,19 @@ export default function StudentProfilePage() {
                 control={form.control} name="technicalSkills" label="Habilidades Técnicas"
                 skills={PREDEFINED_TECHNICAL_SKILLS} levels={PROFICIENCY_LEVELS}
                 icon={<CheckSquare size={20} />}
-                // @ts-ignore TODO: Fix SkillCheckboxGroup to accept disabled prop correctly
-                disabled={!isEditing || isLoading}
+                disabled={!isEditing || isLoading} // Pass disabled state
               />
               <SkillCheckboxGroup
                  control={form.control} name="softSkills" label="Habilidades Blandas"
                  skills={PREDEFINED_SOFT_SKILLS} levels={SOFT_SKILL_LEVELS}
                  icon={<Brain size={20} />}
-                 // @ts-ignore
-                 disabled={!isEditing || isLoading}
+                 disabled={!isEditing || isLoading} // Pass disabled state
               />
                <SkillCheckboxGroup
                  control={form.control} name="languages" label="Idiomas"
                  skills={PREDEFINED_LANGUAGES} levels={LANGUAGE_LEVELS}
                  icon={<Languages size={20} />}
-                 // @ts-ignore
-                 disabled={!isEditing || isLoading}
+                 disabled={!isEditing || isLoading} // Pass disabled state
               />
 
 
@@ -340,23 +350,3 @@ export default function StudentProfilePage() {
     </div>
   );
 }
-
-// Add state for error message near other states
-// const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-// Add inside onSubmit error handling:
-// catch (error: any) {
-//     console.error("Profile update error:", error);
-//     setErrorMessage(error.message || 'No se pudo guardar el perfil.');
-//     toast({
-//       title: 'Error',
-//       description: 'No se pudieron guardar los cambios.',
-//       variant: 'destructive',
-//     });
-// } finally {
-//     setIsLoading(false);
-// }
-
-// Make SkillCheckboxGroup accept a disabled prop (requires modification in that component)
-// Pass `disabled={!isEditing || isLoading}` to SkillCheckboxGroup components.
-// We need to modify SkillCheckboxGroup to pass this down to Checkbox and Select components.

@@ -1,4 +1,3 @@
-
 // src/components/auth/skill-checkbox-group.tsx
 'use client';
 
