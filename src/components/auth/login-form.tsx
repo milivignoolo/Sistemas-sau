@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -28,13 +29,27 @@ async function authenticateUser(username: string, password: string) {
   await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
   // Mock credentials (replace with actual backend verification)
+  // Use the same credentials used during mock registration for consistency
   const validStudent = { username: '12345', password: 'password123' }; // Matches student registration mock
   const validCompany = { username: '30-12345678-9', password: 'password123' }; // Matches company registration mock
 
   if ((username === validStudent.username || username === validCompany.username) && password === 'password123') {
     console.log(`Authentication successful for user: ${username}`);
     // Determine user type based on username format (simple example)
-    const userType = /^\d+$/.test(username) ? 'student' : 'company';
+    // Student Legajo: Only digits
+    // Company CUIT: XX-XXXXXXXX-X format
+    let userType: 'student' | 'company' | 'unknown' = 'unknown';
+    if (/^\d+$/.test(username)) {
+        userType = 'student';
+    } else if (/^\d{2}-\d{8}-\d{1}$/.test(username)) {
+        userType = 'company';
+    }
+
+     if (userType === 'unknown') {
+        console.error(`Could not determine user type for username: ${username}`);
+        throw new Error('Formato de usuario inválido.');
+     }
+
     return { success: true, userType: userType, username: username };
   } else {
     console.error(`Authentication failed for user: ${username}`);
@@ -72,17 +87,19 @@ export function LoginForm() {
       if (result.success) {
         toast({
           title: 'Inicio de Sesión Exitoso',
-          description: `Bienvenido/a de nuevo, ${result.username}. (${result.userType})`,
+          description: `Bienvenido/a de nuevo, ${result.username}. (Tipo: ${result.userType === 'student' ? 'Estudiante' : 'Empresa'})`,
+          variant: 'success', // Use success variant
         });
         setLoginSuccess(true);
         // TODO: Redirect to appropriate dashboard based on userType
         // e.g., router.push(result.userType === 'student' ? '/student/dashboard' : '/company/dashboard');
-        form.reset(); // Clear form on success
+        // form.reset(); // Clear form on success - optional, might be better to leave it for viewing success message
       }
     } catch (error: any) {
       console.error("Login error:", error);
       setErrorMessage(error.message || 'Error al iniciar sesión.');
-      form.setError("password", { type: "manual", message: error.message || 'Error desconocido' }); // Set error on password field
+      // Optionally set error on a specific field, e.g., password
+      // form.setError("password", { type: "manual", message: error.message || 'Error desconocido' });
     } finally {
       setIsLoading(false);
     }
@@ -102,8 +119,8 @@ export function LoginForm() {
           <Alert variant="success">
             <LogIn className="h-4 w-4" />
             <AlertTitle>¡Éxito!</AlertTitle>
-            <AlertDescription>Has iniciado sesión correctamente.</AlertDescription>
-            {/* Add link to dashboard here later */}
+            <AlertDescription>Has iniciado sesión correctamente. Serás redirigido en breve.</AlertDescription>
+            {/* TODO: Add link to dashboard here later or implement redirect */}
           </Alert>
         )}
 
@@ -156,3 +173,4 @@ export function LoginForm() {
     </Form>
   );
 }
+
