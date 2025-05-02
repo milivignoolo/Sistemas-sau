@@ -7,6 +7,7 @@ import { Controller } from 'react-hook-form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'; // Import FormDescription
+import { cn } from '@/lib/utils'; // Import the cn utility function
 
 // --- Component Logic ---
 interface SkillCheckboxGroupProps {
@@ -72,7 +73,7 @@ export function SkillCheckboxGroup({ control, name, label, skills, levels, icon,
                                         >
                                             <FormControl>
                                                 {/* Add disabled styling to trigger */}
-                                                <SelectTrigger disabled={disabled} className={disabled ? "bg-muted/30 border-dashed" : ""}>
+                                                <SelectTrigger disabled={disabled} className={cn(disabled ? "bg-muted/30 border-dashed" : "")}>
                                                     <SelectValue placeholder="Seleccionar nivel" />
                                                 </SelectTrigger>
                                             </FormControl>
