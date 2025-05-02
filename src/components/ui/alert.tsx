@@ -1,6 +1,7 @@
 
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+import { AlertCircle, CheckSquare, Info, TriangleAlert } from "lucide-react" // Added icons
 
 import { cn } from "@/lib/utils"
 
@@ -9,12 +10,12 @@ const alertVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-background text-foreground",
+        default: "bg-background text-foreground [&>svg]:text-foreground", // Specify default icon color
         destructive:
           "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
-        success: // Added success variant
+        success:
            "border-green-500/50 text-green-700 bg-green-50 dark:border-green-700 dark:text-green-300 dark:bg-green-950 [&>svg]:text-green-600 dark:[&>svg]:text-green-400",
-        info: // Added info variant
+        info:
            "border-blue-500/50 text-blue-700 bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:bg-blue-950 [&>svg]:text-blue-600 dark:[&>svg]:text-blue-400",
       },
     },
@@ -27,14 +28,27 @@ const alertVariants = cva(
 const Alert = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
->(({ className, variant, ...props }, ref) => (
-  <div
-    ref={ref}
-    role="alert"
-    className={cn(alertVariants({ variant }), className)}
-    {...props}
-  />
-))
+>(({ className, variant, children, ...props }, ref) => {
+    // Determine icon based on variant
+    const Icon =
+        variant === "destructive" ? AlertCircle :
+        variant === "success" ? CheckSquare :
+        variant === "info" ? Info :
+        TriangleAlert; // Default icon if needed or adjust
+
+    return (
+      <div
+        ref={ref}
+        role="alert"
+        className={cn(alertVariants({ variant }), className)}
+        {...props}
+      >
+          {/* Conditionally render icon if not provided as a child */}
+         {variant && <Icon className="h-4 w-4" />}
+         {children}
+      </div>
+    )
+})
 Alert.displayName = "Alert"
 
 const AlertTitle = React.forwardRef<
@@ -62,3 +76,4 @@ const AlertDescription = React.forwardRef<
 AlertDescription.displayName = "AlertDescription"
 
 export { Alert, AlertTitle, AlertDescription }
+        ```
