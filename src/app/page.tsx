@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { ArrowRight, Briefcase, Building } from 'lucide-react';
+import { ArrowRight, Briefcase, Building, FilePlus } from 'lucide-react'; // Changed icon
 import Image from 'next/image';
 
 
@@ -10,8 +10,8 @@ export default function Home() {
     <div className="space-y-12">
       <section className="text-center py-12 bg-secondary rounded-lg shadow">
          <Image
-            data-ai-hint="university campus graduation"
-            src="https://picsum.photos/1200/400" // Placeholder image
+            data-ai-hint="university campus graduation students"
+            src="https://picsum.photos/seed/campus/1200/400" // Updated seed for relevance
             alt="Campus Universitario UTN"
             width={1200}
             height={400}
@@ -27,11 +27,12 @@ export default function Home() {
               Buscar Pasantías <ArrowRight className="ml-2" />
             </Button>
           </Link>
-          <Link href="/register?type=company" passHref>
+          {/* Updated link for companies */}
+           <Link href="/post-internship" passHref>
             <Button size="lg" variant="outline">
-              Publicar Pasantía <ArrowRight className="ml-2" />
+              Publicar Pasantía <FilePlus className="ml-2" />
             </Button>
-          </Link>
+           </Link>
         </div>
       </section>
 
@@ -74,7 +75,7 @@ export default function Home() {
                  Regístrate como Empresa <ArrowRight className="ml-1 size-4" />
                </Button>
             </Link>
-            {/* Link to company dashboard (once created) */}
+            {/* Link to post internship page */}
              <Link href="/post-internship" passHref>
                 <Button className="w-full">
                  Publicar Nueva Pasantía

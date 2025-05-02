@@ -7,20 +7,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StudentRegistrationForm } from '@/components/auth/student-registration-form';
 import { CompanyRegistrationForm } from '@/components/auth/company-registration-form';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 export default function RegisterPage() {
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get('type') === 'company' ? 'company' : 'student';
   const router = useRouter();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = React.useState(defaultTab);
 
 
   const handleStudentRegisterSuccess = () => {
-    router.push('/student/profile');
+    toast({
+        title: 'Registro Estudiante Completo',
+        description: 'Tu cuenta ha sido creada. Serás redirigido/a a la página principal.',
+        variant: 'success',
+    });
+    router.push('/'); // Redirect to home page
   };
 
   const handleCompanyRegisterSuccess = () => {
-    router.push('/company/profile');
+     toast({
+        title: 'Registro Empresa Completo',
+        description: 'La cuenta de la empresa ha sido creada. Serás redirigido/a a la página principal.',
+        variant: 'success',
+    });
+    router.push('/'); // Redirect to home page
   };
 
 

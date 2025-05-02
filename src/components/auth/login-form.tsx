@@ -23,52 +23,101 @@ import { Loader2, LogIn, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+// --- localStorage Interaction (Client-Side Only) ---
+const safeLocalStorageGet = (key: string) => {
+    if (typeof window !== 'undefined') {
+        try {
+            const item = localStorage.getItem(key);
+            return item ? JSON.parse(item) : null;
+        } catch (error) {
+            console.error(`Error reading localStorage key “${key}”:`, error);
+            return null;
+        }
+    }
+    return null;
+};
 
 // --- Mock Authentication Function ---
-async function authenticateUser(username: string, password: string) {
+async function authenticateUser(username: string, password: string): Promise<{ success: boolean, userType: 'student' | 'company', username: string }> {
   console.log(`Attempting to authenticate user: ${username} with password: ${password}`);
   await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-  
+
+  // Fetch ALL potential user profiles from localStorage
+  // In a real app, this would be a single API call to the backend
+  const storedUserProfile = safeLocalStorageGet('userProfile');
+
   let isAuthenticated = false;
   let userType: 'student' | 'company' | 'unknown' = 'unknown';
-  
-  // Determine if the username is a student ID or a company CUIT based on length.
-  const isStudentId = /^\d{1,6}$/.test(username); // 1-6 digits
-  const isCompanyCuit = /^\d{11}$/.test(username); // 11 digits
-  
-    // Mock credentials (replace with actual backend verification)
-  // Ensure these match the credentials used during mock registration
-  const validStudent = { username: '12345', password: 'password123' }; // From student registration mock
-  const validCompany = { username: '12345678901', password: 'password123' }; // From company registration mock
+  let foundProfile: any = null;
 
-  if (isStudentId && username === validStudent.username && password === validStudent.password) {
-    isAuthenticated = true;
-    userType = 'student';
-  } else if (isCompanyCuit && username === validCompany.username && password === validCompany.password) {
-    isAuthenticated = true;
-    userType = 'company';
+  console.log("Checking stored profile:", storedUserProfile);
+
+  if (storedUserProfile) {
+        // Check if the stored username matches the input username
+        // Ensure username comparison accounts for CUIT (no dashes) vs Legajo
+        const normalizedStoredUsername = storedUserProfile.username?.replace?.(/-/g, '') || storedUserProfile.username;
+        const normalizedInputUsername = username.replace(/-/g, '');
+
+        console.log(`Comparing input: ${normalizedInputUsername} with stored: ${normalizedStoredUsername}`);
+        console.log(`Comparing password input: ${password} with stored: ${storedUserProfile.password}`);
+
+        if (normalizedStoredUsername === normalizedInputUsername && storedUserProfile.password === password) {
+            isAuthenticated = true;
+            userType = storedUserProfile.userType as 'student' | 'company';
+            foundProfile = storedUserProfile;
+            console.log("Credentials match!");
+        } else {
+             console.log("Credentials do NOT match.");
+        }
+  } else {
+     console.log("No user profile found in localStorage.");
+     // For mock testing, let's add default mock users if nothing is stored
+     const validStudent = { username: '12345', password: 'password123', userType: 'student' };
+     const validCompany = { username: '30123456789', password: 'password123', userType: 'company' }; // Use CUIT without dashes
+
+      if (username === validStudent.username && password === validStudent.password) {
+        isAuthenticated = true;
+        userType = 'student';
+        foundProfile = validStudent; // Use mock data
+         console.log("Matched MOCK student user.");
+      } else if (username === validCompany.username && password === validCompany.password) {
+        isAuthenticated = true;
+        userType = 'company';
+        foundProfile = validCompany; // Use mock data
+         console.log("Matched MOCK company user.");
+      } else {
+           console.log("No stored profile and input does not match mock credentials.");
+      }
   }
 
-  if (isAuthenticated) {
+
+  if (isAuthenticated && (userType === 'student' || userType === 'company')) {
     console.log(`Authentication successful for user: ${username}, Type: ${userType}`);
-        return { success: true, userType: userType, username: username };
+    // IMPORTANT: Re-save the found profile to ensure 'userProfile' key is set correctly, especially if using mock data fallback
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('userProfile', JSON.stringify(foundProfile));
+        console.log("Saved found/mock profile to localStorage.");
+    }
+    return { success: true, userType: userType, username: username };
   } else {
-    console.error(`Authentication failed for user: ${username}. Provided password: ${password}. Expected student pass: ${validStudent.password}, Expected company pass: ${validCompany.password}`);
+    console.error(`Authentication failed for user: ${username}.`);
     throw new Error('Usuario o contraseña incorrectos.');
   }
 }
 
+
 // --- Zod Schema ---
+// Adjusted regex to handle CUIT with or without hyphens for input, but store/check without
 const usernameSchema = z.string().refine(
-  (val) => /^\d{1,6}$/.test(val) || /^\d{11}$/.test(val),
+  (val) => /^\d{1,6}$/.test(val) || /^\d{2}-?\d{8}-?\d{1}$/.test(val) || /^\d{11}$/.test(val),
   {
-    message: "El legajo debe tener entre 1 y 6 dígitos, o el CUIT debe tener 11 dígitos.",
+    message: "El usuario debe ser un legajo (1-6 dígitos) o CUIT (11 dígitos, con o sin guiones).",
   }
 );
 
+
 const formSchema = z.object({
-  
-  username: z.string().min(1, { message: 'El nombre de usuario (Legajo o CUIT) es requerido.' }),
+  username: usernameSchema,
   password: z.string().min(1, { message: 'La contraseña es requerida.' }),
 });
 
@@ -92,28 +141,35 @@ export function LoginForm() {
     setErrorMessage(null);
     setLoginSuccess(false);
 
+    // Normalize username: remove hyphens if it looks like a CUIT
+    const normalizedUsername = /^\d{2}-?\d{8}-?\d{1}$/.test(values.username)
+        ? values.username.replace(/-/g, '')
+        : values.username;
+
     try {
-      const result = await authenticateUser(values.username, values.password);
+      // Pass the normalized username for authentication check
+      const result = await authenticateUser(normalizedUsername, values.password);
       if (result.success) {
         toast({
           title: 'Inicio de Sesión Exitoso',
-          description: `Bienvenido/a de nuevo, ${result.username}. (Tipo: ${result.userType === 'student' ? 'Estudiante' : 'Empresa'})`,
-          // Removed success variant to use default style
+          description: `Bienvenido/a. (Tipo: ${result.userType === 'student' ? 'Estudiante' : 'Empresa'})`,
+          variant: 'success', // Use success variant
         });
         setLoginSuccess(true);
+
+        // Redirect based on user type
         if (result.userType === 'student') {
-          router.push('/student/profile');
+          router.push('/internships'); // Redirect student to internships list
         } else if (result.userType === 'company') {
-          router.push('/company/profile');
+           router.push('/post-internship'); // Redirect company to post internship page
         }
-        // form.reset(); // Clear form on success - optional, might be better to leave it for viewing success message
+        // Do not reset form immediately to allow user to see success message
+        // form.reset();
       }
       // No explicit else needed because authenticateUser throws on failure
     } catch (error: any) {
       console.error("Login error:", error);
       setErrorMessage(error.message || 'Error al iniciar sesión.');
-      // Optionally set error on a specific field, e.g., password
-      // form.setError("password", { type: "manual", message: error.message || 'Error desconocido' });
     } finally {
       setIsLoading(false);
     }
@@ -130,12 +186,10 @@ export function LoginForm() {
           </Alert>
         )}
          {loginSuccess && (
-          // Using default alert style for success message
-          <Alert variant="default" className="border-green-500/50 text-green-700 bg-green-50 dark:border-green-700 dark:text-green-300 dark:bg-green-950">
-            <LogIn className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <AlertTitle className="text-green-800 dark:text-green-200">¡Éxito!</AlertTitle>
-            <AlertDescription className="text-green-700 dark:text-green-300">Has iniciado sesión correctamente. Serás redirigido en breve.</AlertDescription>
-            {/* TODO: Add link to dashboard here later or implement redirect */}
+          <Alert variant="success"> {/* Use success variant */}
+            <LogIn className="h-4 w-4" />
+            <AlertTitle>¡Éxito!</AlertTitle>
+            <AlertDescription>Has iniciado sesión correctamente. Serás redirigido en breve.</AlertDescription>
           </Alert>
         )}
 
@@ -188,4 +242,3 @@ export function LoginForm() {
     </Form>
   );
 }
-

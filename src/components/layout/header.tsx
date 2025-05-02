@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, Briefcase, Building, UserPlus, LogIn, User } from 'lucide-react'; // Added User icon
+import { GraduationCap, Briefcase, Building, UserPlus, LogIn, LogOut } from 'lucide-react'; // Changed User icon to LogOut
 import React, { useState, useEffect } from 'react'; // Import useState and useEffect
 
 // --- localStorage Interaction (Client-Side Only) ---
@@ -36,16 +36,11 @@ export default function Header() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('userProfile');
       setUserProfile(null);
-      // Optionally redirect to login or home page
+      // Redirect to login page after logout
       window.location.href = '/login';
     }
   };
 
-  const profileUrl = userProfile?.userType === 'student'
-    ? '/student/profile'
-    : userProfile?.userType === 'company'
-    ? '/company/profile'
-    : '/login'; // Fallback to login if no profile or type
 
   return (
     <header className="bg-primary text-primary-foreground shadow-md">
@@ -65,6 +60,15 @@ export default function Header() {
                <Building className="mr-1 size-4" /> Empresas
              </Button>
           </Link>
+           {/* Link to Post Internship for logged-in companies */}
+           {userProfile?.userType === 'company' && (
+             <Link href="/post-internship" passHref>
+               <Button variant="ghost" className="text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground text-xs sm:text-sm px-1 sm:px-2">
+                 {/* Consider a different icon, maybe FilePlus */}
+                 <Briefcase className="mr-1 size-4" /> Publicar
+               </Button>
+             </Link>
+           )}
 
           {/* Conditional Rendering based on loading state and profile */}
           {isLoading ? (
@@ -75,17 +79,13 @@ export default function Header() {
             </>
           ) : userProfile ? (
              <>
-                <Link href={profileUrl} passHref>
-                    <Button variant="secondary" className="bg-accent text-accent-foreground hover:bg-accent/90 text-xs sm:text-sm px-2 sm:px-3">
-                    <User className="mr-1 size-4" /> Mi Perfil
-                    </Button>
-                </Link>
+                {/* Removed Profile Button */}
                 <Button
                     variant="outline"
                     onClick={handleLogout}
                     className="text-primary-foreground border-primary-foreground/50 hover:bg-primary/90 hover:text-primary-foreground text-xs sm:text-sm px-2 sm:px-3"
                     >
-                    <LogIn className="mr-1 size-4" /> Salir
+                    <LogOut className="mr-1 size-4" /> Salir
                 </Button>
             </>
           ) : (
