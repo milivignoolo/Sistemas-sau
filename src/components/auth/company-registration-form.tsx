@@ -49,8 +49,10 @@ async function verifyCompanyCode(email: string, code: string) {
   console.log(`Verifying company code ${code} for email: ${email}`);
   await new Promise(resolve => setTimeout(resolve, 1000));
   if (code === '654321') { // Different code for company
+    console.log(`Company code ${code} verified successfully for ${email}`);
     return true;
   } else {
+    console.error(`Incorrect company code ${code} for ${email}`);
     throw new Error('Código de verificación incorrecto.');
   }
 }
@@ -112,7 +114,8 @@ export function CompanyRegistrationForm() {
   const [step, setStep] = useState<Step>('initial');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [companyInitialData, setCompanyInitialData] = useState<z.infer<typeof stepOneSchema> | null>(null);
+  // Store validated initial data separately to ensure it's clean
+  const [validatedInitialData, setValidatedInitialData] = useState<z.infer<typeof stepOneSchema> | null>(null);
 
    // Determine the current schema based on the step
    const getCurrentSchema = () => {
@@ -129,7 +132,7 @@ export function CompanyRegistrationForm() {
     }
   };
 
-   // Use Form with combined type and current step's schema for resolver
+   // Use Form with combined type and dynamic resolver based on current step
    const form = useForm<CompanyFormData>({
     resolver: zodResolver(getCurrentSchema()),
     defaultValues: {
@@ -149,15 +152,30 @@ export function CompanyRegistrationForm() {
       password: '',
       confirmPassword: '',
     },
-     mode: 'onChange', // Validate on change for better UX
-     reValidateMode: 'onChange',
+     // Consider 'onBlur' or 'onSubmit' if 'onChange' feels too aggressive
+     mode: 'onBlur',
+     reValidateMode: 'onChange', // Re-validate on change after first blur/submit
   });
+
+   // Update the resolver when the step changes
+    React.useEffect(() => {
+        form.reset(form.getValues(), {
+             keepValues: true, // Keep current form values
+             keepDirty: true,
+             keepErrors: true, // Keep existing errors until re-validation
+        });
+        // Explicitly create a new resolver instance based on the new step
+        const newResolver = zodResolver(getCurrentSchema());
+        // @ts-ignore - Dynamically updating resolver (might need type assertion if TS complains)
+        form.resolver = newResolver;
+    }, [step, form]);
+
 
   // --- Submit Handlers for Each Step ---
   const handleInitialSubmit = async (values: z.infer<typeof stepOneSchema>) => {
     setIsLoading(true);
     setErrorMessage(null);
-    setCompanyInitialData(values); // Store initial data
+    setValidatedInitialData(values); // Store validated initial data
     setStep('verifyArca'); // Move to ARCA verification state
 
     try {
@@ -175,6 +193,7 @@ export function CompanyRegistrationForm() {
          setStep('error');
       }
     } catch (error: any) {
+      console.error("ARCA verification error:", error);
       setErrorMessage(error.message || 'Error en la verificación ARCA.');
       form.setError("cuit", { type: "manual", message: error.message || 'Verificación ARCA fallida.' });
       setStep('initial'); // Go back to initial step on ARCA error
@@ -184,14 +203,21 @@ export function CompanyRegistrationForm() {
   };
 
   const handleEmailVerifySubmit = async (values: z.infer<typeof stepThreeSchema>) => {
-    if (!companyInitialData) return; // Should not happen
+    if (!validatedInitialData) {
+        console.error("Email verification step reached without initial data.");
+        setErrorMessage("Error interno: Faltan datos iniciales. Por favor, reinicia el registro.");
+        setStep('error');
+        return;
+    }
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      await verifyCompanyCode(companyInitialData.contactEmail, values.verificationCode);
+      console.log(`Attempting to verify code '${values.verificationCode}' for email '${validatedInitialData.contactEmail}'`);
+      await verifyCompanyCode(validatedInitialData.contactEmail, values.verificationCode);
       toast({ title: 'Correo Verificado', description: 'El correo de contacto ha sido verificado.' });
       setStep('password'); // Move to password creation
     } catch (error: any) {
+       console.error("Email verification code error:", error);
        setErrorMessage(error.message || 'Error en la verificación del código.');
        form.setError("verificationCode", { type: "manual", message: error.message || 'Código incorrecto.' });
        // Stay on verifyEmail step
@@ -201,21 +227,28 @@ export function CompanyRegistrationForm() {
   };
 
    const handlePasswordSubmit = async (values: z.infer<typeof stepFourSchema>) => {
-    if (!companyInitialData) return; // Should not happen
+    if (!validatedInitialData) {
+        console.error("Password step reached without initial data.");
+        setErrorMessage("Error interno: Faltan datos iniciales. Por favor, reinicia el registro.");
+        setStep('error');
+        return; // Should not happen
+    }
     setIsLoading(true);
     setErrorMessage(null);
 
     const finalCompanyData = {
-        ...companyInitialData,
+        ...validatedInitialData,
         password: values.password, // Add password
-        username: companyInitialData.cuit, // Set username as CUIT
+        username: validatedInitialData.cuit, // Set username as CUIT
     };
 
     try {
         await createCompanyAccount(finalCompanyData);
-        toast({ title: '¡Registro de Empresa Completo!', description: `La cuenta para ${companyInitialData.companyName} ha sido creada.` });
+        toast({ title: '¡Registro de Empresa Completo!', description: `La cuenta para ${validatedInitialData.companyName} ha sido creada.` });
         setStep('complete');
-    } catch (error: any) {
+    } catch (error: any)
+     {
+        console.error("Account creation error:", error);
         setErrorMessage(error.message || 'No se pudo crear la cuenta de la empresa.');
         setStep('error'); // Go to error state
     } finally {
@@ -226,43 +259,53 @@ export function CompanyRegistrationForm() {
 
   // --- Main Submit Handler ---
   const onSubmit = async (values: CompanyFormData) => {
-     // Update resolver dynamically based on the current step before submitting
-     form.trigger().then(isValid => {
-         if (isValid) {
-             switch (step) {
-                case 'initial':
-                    handleInitialSubmit(values as z.infer<typeof stepOneSchema>);
-                    break;
-                case 'verifyEmail':
-                    handleEmailVerifySubmit(values as z.infer<typeof stepThreeSchema>);
-                    break;
-                case 'password':
-                    handlePasswordSubmit(values as z.infer<typeof stepFourSchema>);
-                    break;
-                default:
-                    console.log('Unhandled step or state:', step);
-            }
-         } else {
-             console.log("Form validation failed for step:", step, form.formState.errors);
-              toast({
-                    title: 'Error de Validación',
-                    description: 'Por favor, corrige los errores en el formulario.',
-                    variant: 'destructive',
-                });
-         }
-     });
+     // Determine which fields to validate based on the current step
+     let fieldsToValidate: (keyof CompanyFormData)[] | undefined = undefined;
+     let handler: ((data: any) => Promise<void>) | undefined = undefined;
+     let schemaForValidation: z.ZodSchema<any> = z.object({});
 
+     switch (step) {
+        case 'initial':
+            fieldsToValidate = Object.keys(stepOneSchema.shape) as (keyof z.infer<typeof stepOneSchema>)[];
+            handler = handleInitialSubmit;
+            schemaForValidation = stepOneSchema;
+            break;
+        case 'verifyEmail':
+             fieldsToValidate = Object.keys(stepThreeSchema.shape) as (keyof z.infer<typeof stepThreeSchema>)[];
+             handler = handleEmailVerifySubmit;
+             schemaForValidation = stepThreeSchema;
+             break;
+        case 'password':
+             fieldsToValidate = Object.keys(stepFourSchema.shape) as (keyof z.infer<typeof stepFourSchema>)[];
+             handler = handlePasswordSubmit;
+             schemaForValidation = stepFourSchema;
+             break;
+        default:
+            console.log('Unhandled step or state:', step);
+            return; // No action for other steps like 'verifyArca', 'complete', 'error'
+     }
 
-  };
+     // Trigger validation ONLY for the fields relevant to the current step
+     const isValid = await form.trigger(fieldsToValidate);
 
-  // --- Re-render form when step changes to apply new resolver ---
-   React.useEffect(() => {
-        form.reset(form.getValues()); // Keep current values, but re-apply resolver
-    }, [step, form]);
+     if (isValid && handler) {
+         // Ensure we pass only the validated data relevant to the current step's schema
+         const stepSpecificValues = schemaForValidation.parse(values); // Re-parse with the specific schema
+         await handler(stepSpecificValues);
+     } else {
+         console.log("Form validation failed for step:", step, form.formState.errors);
+         toast({
+             title: 'Error de Validación',
+             description: 'Por favor, corrige los errores marcados en el formulario.',
+             variant: 'destructive',
+         });
+     }
+ };
 
 
   return (
     <Form {...form}>
+      {/* Pass the onSubmit handler directly */}
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
          {errorMessage && step !== 'error' && ( // Show error inline unless in final error step
@@ -302,6 +345,7 @@ export function CompanyRegistrationForm() {
              <FormField control={form.control} name="contactEmail" render={({ field }) => ( <FormItem> <FormLabel>Correo Electrónico de Contacto</FormLabel> <FormControl><Input type="email" placeholder="rrhh@empresa.com" {...field} disabled={isLoading}/></FormControl> <FormMessage /> </FormItem> )}/>
              <FormField control={form.control} name="contactPhone" render={({ field }) => ( <FormItem> <FormLabel>Teléfono de Contacto (Opcional)</FormLabel> <FormControl><Input type="tel" placeholder="+54 9 11 1234-5678" {...field} disabled={isLoading}/></FormControl> <FormMessage /> </FormItem> )}/>
 
+            {/* Use type="submit" for the button within the form */}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Fingerprint className="mr-2 h-4 w-4" />}
               Verificar Empresa y Contacto
@@ -320,14 +364,14 @@ export function CompanyRegistrationForm() {
 
 
         {/* Step 3: Email Verification */}
-        {step === 'verifyEmail' && companyInitialData && (
+        {step === 'verifyEmail' && validatedInitialData && (
           <>
              <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><MailCheck size={20} /> Verificar Correo Electrónico</h3>
             <Alert variant="info">
               <Info className="h-4 w-4" />
               <AlertTitle>Verificación de Contacto Requerida</AlertTitle>
               <AlertDescription>
-                Se ha enviado un código de 6 dígitos a <strong>{companyInitialData.contactEmail}</strong>. Ingrésalo a continuación para verificar la dirección de correo electrónico de contacto.
+                Se ha enviado un código de 6 dígitos a <strong>{validatedInitialData.contactEmail}</strong>. Ingrésalo a continuación para verificar la dirección de correo electrónico de contacto.
               </AlertDescription>
             </Alert>
             <FormField
@@ -343,11 +387,12 @@ export function CompanyRegistrationForm() {
                 </FormItem>
               )}
             />
+             {/* Use type="submit" for the button within the form */}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MailCheck className="mr-2 h-4 w-4"/>}
               Verificar Código
             </Button>
-             <Button variant="link" size="sm" onClick={() => { setStep('initial'); setErrorMessage(null); }} disabled={isLoading} className="w-full mt-2 text-muted-foreground">
+             <Button type="button" variant="link" size="sm" onClick={() => { setStep('initial'); setErrorMessage(null); }} disabled={isLoading} className="w-full mt-2 text-muted-foreground">
                 Volver y corregir datos iniciales
             </Button>
              {/* TODO: Add resend code functionality */}
@@ -358,14 +403,14 @@ export function CompanyRegistrationForm() {
         )}
 
         {/* Step 4: Create Password */}
-        {step === 'password' && companyInitialData && (
+        {step === 'password' && validatedInitialData && (
           <>
             <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><KeyRound size={20} /> Crear Contraseña</h3>
             <Alert variant="default">
               <KeyRound className="h-4 w-4" />
               <AlertTitle>Último Paso</AlertTitle>
               <AlertDescription>
-                Crea una contraseña segura para la cuenta de la empresa. El nombre de usuario será el CUIT: <strong>{companyInitialData.cuit}</strong>.
+                Crea una contraseña segura para la cuenta de la empresa. El nombre de usuario será el CUIT: <strong>{validatedInitialData.cuit}</strong>.
               </AlertDescription>
             </Alert>
             <FormField
@@ -394,23 +439,24 @@ export function CompanyRegistrationForm() {
                 </FormItem>
               )}
             />
+             {/* Use type="submit" for the button within the form */}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Building className="mr-2 h-4 w-4"/>}
               Completar Registro de Empresa
             </Button>
-             <Button variant="link" size="sm" onClick={() => setStep('verifyEmail')} disabled={isLoading} className="w-full mt-2 text-muted-foreground">
+             <Button type="button" variant="link" size="sm" onClick={() => setStep('verifyEmail')} disabled={isLoading} className="w-full mt-2 text-muted-foreground">
                 Volver a ingresar código de verificación
             </Button>
           </>
         )}
 
          {/* Step 5: Complete */}
-         {step === 'complete' && companyInitialData && (
+         {step === 'complete' && validatedInitialData && (
              <Alert variant="success">
                  <CheckSquare className="h-4 w-4"/>
                 <AlertTitle>¡Registro de Empresa Exitoso!</AlertTitle>
                 <AlertDescription>
-                    La cuenta para <strong>{companyInitialData.companyName}</strong> ha sido creada. El nombre de usuario es el CUIT: <strong>{companyInitialData.cuit}</strong>.
+                    La cuenta para <strong>{validatedInitialData.companyName}</strong> ha sido creada. El nombre de usuario es el CUIT: <strong>{validatedInitialData.cuit}</strong>.
                      Ya puedes <Button variant="link" className="p-0 h-auto text-green-700 dark:text-green-300" onClick={() => {/* TODO: Implement login redirect */}}>iniciar sesión</Button> y publicar pasantías.
                  </AlertDescription>
             </Alert>
@@ -426,7 +472,7 @@ export function CompanyRegistrationForm() {
                      <br />
                      Por favor, revisa los datos e inténtalo de nuevo.
                  </AlertDescription>
-                  <Button variant="outline" size="sm" onClick={() => { setStep('initial'); setErrorMessage(null); }} className="mt-4">
+                  <Button type="button" variant="outline" size="sm" onClick={() => { setStep('initial'); setErrorMessage(null); form.reset(); }} className="mt-4">
                     Volver al Inicio del Registro
                  </Button>
              </Alert>
