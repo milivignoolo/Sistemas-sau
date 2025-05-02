@@ -126,6 +126,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loginSuccess, setLoginSuccess] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false); // Track submit attempt
   const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -134,12 +135,15 @@ export function LoginForm() {
       username: '',
       password: '',
     },
+    mode: 'onSubmit', // Validate only on submit
+    reValidateMode: 'onChange', // Re-validate on change after first submit
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     setErrorMessage(null);
     setLoginSuccess(false);
+    setHasAttemptedSubmit(true); // Mark that a submit attempt has been made
 
     // Normalize username: remove hyphens if it looks like a CUIT
     const normalizedUsername = /^\d{2}-?\d{8}-?\d{1}$/.test(values.username)
@@ -170,6 +174,8 @@ export function LoginForm() {
     } catch (error: any) {
       console.error("Login error:", error);
       setErrorMessage(error.message || 'Error al iniciar sesión.');
+      // Trigger validation again on error to show messages if needed
+      form.trigger();
     } finally {
       setIsLoading(false);
     }
@@ -178,7 +184,8 @@ export function LoginForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {errorMessage && !loginSuccess && (
+        {/* Show error message only if there was a submit attempt and an error occurred */}
+        {hasAttemptedSubmit && errorMessage && !loginSuccess && (
           <Alert variant="destructive">
             <Info className="h-4 w-4" />
             <AlertTitle>Error de Autenticación</AlertTitle>
@@ -202,6 +209,7 @@ export function LoginForm() {
               <FormControl>
                 <Input placeholder="Tu legajo o CUIT" {...field} disabled={isLoading || loginSuccess} />
               </FormControl>
+              {/* FormMessage will only show after submit attempt due to mode: 'onSubmit' */}
               <FormMessage />
             </FormItem>
           )}
@@ -216,6 +224,7 @@ export function LoginForm() {
               <FormControl>
                 <Input type="password" placeholder="********" {...field} disabled={isLoading || loginSuccess} />
               </FormControl>
+              {/* FormMessage will only show after submit attempt */}
               <FormMessage />
             </FormItem>
           )}

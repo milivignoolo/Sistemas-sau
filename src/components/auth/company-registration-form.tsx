@@ -155,6 +155,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
   const [step, setStep] = useState<Step>('initial');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   // No longer need validatedInitialData state, use localStorage
 
    const getCurrentSchema = () => {
@@ -167,7 +168,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
       case 'password':
         return stepFourSchema;
       default:
-        return z.object({});
+        return z.object({}); // Return an empty schema for non-form steps
     }
   };
 
@@ -190,8 +191,8 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
       password: '',
       confirmPassword: '',
     },
-     mode: 'onBlur',
-     reValidateMode: 'onChange',
+     mode: 'onSubmit', // Validate only on submit initially
+     reValidateMode: 'onChange', // Re-validate on change after the first submit attempt
   });
 
    // --- Submit Handlers for Each Step ---
@@ -208,6 +209,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
         await sendCompanyVerificationEmail(values.contactEmail);
         toast({ title: 'Verifica tu Correo', description: `Se envió un código de verificación a ${values.contactEmail}. (Mock: Usa 654321)` });
         setStep('verifyEmail');
+        setHasAttemptedSubmit(false); // Reset submit attempt flag for the next step
       }
     } catch (error: any) {
       console.error("ARCA or Email Send verification error:", error);
@@ -239,6 +241,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
       await verifyCompanyCode(companyRegData.contactEmail, values.verificationCode);
       toast({ title: 'Correo Verificado', description: 'El correo de contacto ha sido verificado.' });
       setStep('password');
+      setHasAttemptedSubmit(false); // Reset submit attempt flag
     } catch (error: any) {
        console.error("Email verification code error:", error);
        setErrorMessage(error.message || 'Error en la verificación del código.');
@@ -284,7 +287,10 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
 
   // --- Main Submit Handler ---
   const onSubmit = async (values: CompanyFormData) => {
-     if (step === 'complete' || step === 'error' || step === 'verifyArca') return; // Prevent submit during intermediate/final steps
+     // Prevent submission during intermediate/final steps or loading
+     if (step === 'complete' || step === 'error' || step === 'verifyArca' || isLoading) return;
+
+     setHasAttemptedSubmit(true); // Mark that a submit attempt has been made
 
      let handler: ((data: any) => Promise<void>) | undefined = undefined;
      let schemaForValidation: z.ZodSchema<any> = z.object({});
@@ -307,9 +313,8 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
             return;
      }
 
-      // Trigger validation for the current step's schema
-     const fieldsToValidate = Object.keys(schemaForValidation.shape) as (keyof CompanyFormData)[];
-     const isValid = await form.trigger(fieldsToValidate);
+     // Validate using the resolver (which respects mode: 'onSubmit')
+     const isValid = await form.trigger(Object.keys(schemaForValidation.shape) as (keyof CompanyFormData)[]);
 
      if (isValid && handler) {
          try {
@@ -325,11 +330,12 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
                  variant: 'destructive',
              });
          }
-     } else {
+     } else if (!isValid) {
          console.log("Form validation failed for step:", step, form.formState.errors);
+         // Errors will be shown by FormMessage components
          const errors = form.formState.errors;
-         const firstErrorField = fieldsToValidate?.find(field => errors[field]);
-         const firstErrorMessage = firstErrorField ? errors[firstErrorField]?.message : 'Por favor, corrige los errores marcados.';
+         const firstErrorField = Object.keys(schemaForValidation.shape).find(field => errors[field as keyof CompanyFormData]);
+         const firstErrorMessage = firstErrorField ? errors[firstErrorField as keyof CompanyFormData]?.message : 'Por favor, corrige los errores marcados.';
          toast({
              title: 'Error de Validación',
              description: typeof firstErrorMessage === 'string' ? firstErrorMessage : 'Por favor, revisa el formulario.',
@@ -369,11 +375,15 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
         confirmPassword: '',
     });
 
+    setHasAttemptedSubmit(false); // Reset submit attempt flag when step changes
+    setErrorMessage(null); // Clear global error message when step changes
 
-    // Trigger validation after a short delay
-    if (Object.keys(currentSchema.shape || {}).length > 0) {
-       setTimeout(() => form.trigger(), 50);
-    }
+
+    // Trigger validation *only if* a submit attempt was made for this step previously (useful for re-renders)
+    // However, with mode: 'onSubmit', initial validation happens on submit, so triggering here might be redundant
+    // if (hasAttemptedSubmit && currentSchema && Object.keys(currentSchema.shape || {}).length > 0) {
+    //    setTimeout(() => form.trigger(), 50);
+    // }
   }, [step, form]); // Dependencies: step and form instance
 
   const companyDataForDisplay = safeLocalStorageGet('companyRegData');
@@ -383,13 +393,28 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
-         {errorMessage && step !== 'error' && (
+         {/* Show global error message only if it exists */}
+         {errorMessage && (
             <Alert variant="destructive">
                 <Info className="h-4 w-4" />
                 <AlertTitle>Error</AlertTitle>
                 <AlertDescription>{errorMessage}</AlertDescription>
+                {/* Add reset button only in the final error state */}
+                {step === 'error' && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => {
+                      // Clear all company registration localStorage data on full reset
+                      safeLocalStorageRemove('companyRegData');
+                      safeLocalStorageRemove('companyVerificationCode');
+                      setStep('initial');
+                      setErrorMessage(null);
+                      form.reset();
+                      setHasAttemptedSubmit(false);
+                    }} className="mt-4">
+                    Volver al Inicio del Registro
+                 </Button>
+                )}
             </Alert>
-            )}
+         )}
 
         {/* Step 1: Initial Details */}
         {step === 'initial' && (
@@ -457,6 +482,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
                   <FormControl>
                     <Input placeholder="******" {...field} disabled={isLoading} maxLength={6} />
                   </FormControl>
+                  {/* FormMessage will only show after submit attempt */}
                   <FormMessage />
                 </FormItem>
               )}
@@ -465,7 +491,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MailCheck className="mr-2 h-4 w-4"/>}
               Verificar Código
             </Button>
-             <Button type="button" variant="link" size="sm" onClick={() => { setStep('initial'); setErrorMessage(null); }} disabled={isLoading} className="w-full mt-2 text-muted-foreground">
+             <Button type="button" variant="link" size="sm" onClick={() => { setStep('initial'); setErrorMessage(null); setHasAttemptedSubmit(false); }} disabled={isLoading} className="w-full mt-2 text-muted-foreground">
                 Volver y corregir datos iniciales
             </Button>
           </>
@@ -491,6 +517,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
                   <FormControl>
                     <Input type="password" placeholder="********" {...field} disabled={isLoading} />
                   </FormControl>
+                  {/* FormMessage will only show after submit attempt */}
                   <FormMessage />
                 </FormItem>
               )}
@@ -504,6 +531,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
                   <FormControl>
                     <Input type="password" placeholder="********" {...field} disabled={isLoading} />
                   </FormControl>
+                   {/* FormMessage will only show after submit attempt */}
                   <FormMessage />
                 </FormItem>
               )}
@@ -525,33 +553,12 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
                 <AlertTitle>¡Registro de Empresa Exitoso!</AlertTitle>
                 <AlertDescription>
                     La cuenta para <strong>{companyDataForDisplay.companyName}</strong> ha sido creada. El nombre de usuario es el CUIT: <strong>{companyDataForDisplay.cuit.replace(/-/g, '')}</strong>.
-                     Ahora serás redirigido/a al perfil de la empresa.
+                     Ahora serás redirigido/a.
                  </AlertDescription>
-            </Alert>
-         )}
-
-         {/* Final Error State */}
-         {step === 'error' && errorMessage && (
-              <Alert variant="destructive">
-                 <Info className="h-4 w-4" />
-                 <AlertTitle>Error en el Registro</AlertTitle>
-                 <AlertDescription>
-                     {errorMessage}
-                     <br />
-                     Por favor, revisa los datos e inténtalo de nuevo.
-                 </AlertDescription>
-                  <Button type="button" variant="outline" size="sm" onClick={() => {
-                      // Clear all company registration localStorage data on full reset
-                      safeLocalStorageRemove('companyRegData');
-                      safeLocalStorageRemove('companyVerificationCode');
-                      setStep('initial');
-                      setErrorMessage(null);
-                      form.reset();
-                    }} className="mt-4">
-                    Volver al Inicio del Registro
-                 </Button>
              </Alert>
          )}
+
+         {/* Final Error State - Handled by the global error message logic at the top */}
 
       </form>
     </Form>
