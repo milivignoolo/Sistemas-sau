@@ -258,8 +258,41 @@ export default function PostInternshipPage() {
                      </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <FormField control={form.control} name="startDate" render={({ field }) => ( <FormItem className="flex flex-col"> <FormLabel>Fecha de Inicio (Opcional)</FormLabel> <DatePicker value={field.value} onSelect={field.onChange} placeholder="Inicio estimado"/> <FormMessage /> </FormItem> )}/>
-                         <FormField control={form.control} name="endDate" render={({ field }) => ( <FormItem className="flex flex-col"> <FormLabel>Fecha de Fin (Opcional)</FormLabel> <DatePicker value={field.value} onSelect={field.onChange} placeholder="Fin estimado" disabled={(date) => form.getValues("startDate") ? date < form.getValues("startDate")! : false}/> <FormMessage /> </FormItem> )}/>
+                         <FormField
+                            control={form.control}
+                            name="startDate"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Fecha de Inicio (Opcional)</FormLabel>
+                                    <FormControl>
+                                        <DatePicker
+                                            value={field.value}
+                                            onSelect={field.onChange}
+                                            placeholder="Inicio estimado"
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="endDate"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Fecha de Fin (Opcional)</FormLabel>
+                                    <FormControl>
+                                        <DatePicker
+                                            value={field.value}
+                                            onSelect={field.onChange}
+                                            placeholder="Fin estimado"
+                                            disabled={(date) => form.getValues("startDate") ? date < form.getValues("startDate")! : false}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
