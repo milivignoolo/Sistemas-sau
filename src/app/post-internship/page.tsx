@@ -23,9 +23,20 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker
 import { useToast } from '@/hooks/use-toast';
-import { Briefcase, Clock, Hash, CalendarDays, ListChecks, UserCheck, AlertTriangle, CheckSquare, Brain, Languages } from 'lucide-react';
+import { Briefcase, Clock, Hash, CalendarDays, ListChecks, UserCheck, AlertTriangle, CheckSquare, Brain, Languages, Lock } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { SkillCheckboxGroup } from '@/components/auth/skill-checkbox-group'; // Import the reusable component
+import Link from 'next/link'; // Import Link for redirect button
+
+// --- Mock Authentication (Replace with real auth logic) ---
+// In a real app, you'd get this from a session, context, or server-side props
+const getCurrentUserRole = (): 'company' | 'student' | null => {
+    // Simulate a logged-in company for demonstration
+    // Replace with actual logic to check user session/token
+    return 'company';
+    // return 'student'; // Simulate a student
+    // return null; // Simulate not logged in
+};
 
 
 // --- Predefined Lists (Similar to student registration) ---
@@ -96,7 +107,7 @@ const formSchema = z.object({
   technicalSkillsRequired: skillLevelSchema,
   softSkillsRequired: skillLevelSchema,
   languagesRequired: skillLevelSchema,
-  // Removed old 'requirements' text area in favor of structured skills
+  // TODO: Add 'mandatory' flag for skill sections or individual skills if needed
 
   // Urgency & Status
   urgencyLevel: z.enum(['1', '2', '3'], { required_error: 'Debes seleccionar un nivel de urgencia.' }),
@@ -140,6 +151,8 @@ const yearOptions = ['1', '2', '3', '4', '5', 'Graduado Reciente'];
 
 export default function PostInternshipPage() {
   const { toast } = useToast();
+  const userRole = getCurrentUserRole(); // Check user role
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -181,13 +194,39 @@ export default function PostInternshipPage() {
     toast({
       title: 'Pasantía Enviada para Verificación',
       description: 'La oferta de pasantía ha sido enviada y está pendiente de revisión por la SAU. Recibirás una notificación cuando sea aprobada.',
-      variant: 'info' // Use info variant for pending status
+      variant: 'default' // Use default variant for pending status (less alarming than 'info' maybe)
     });
 
     // Optionally reset the form or redirect
     form.reset();
     // router.push('/company/dashboard'); // Example redirect
   }
+
+  // --- Authorization Check ---
+  if (userRole !== 'company') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full mt-10 text-center">
+         <Card className="w-full max-w-md p-8">
+             <CardHeader className="items-center">
+                 <Lock size={48} className="text-destructive mb-4"/>
+                 <CardTitle className="text-2xl">Acceso Restringido</CardTitle>
+                 <CardDescription>
+                     Debes iniciar sesión como empresa para publicar una pasantía.
+                 </CardDescription>
+             </CardHeader>
+            <CardContent>
+                 <Link href="/login" passHref>
+                    <Button className="w-full">
+                        Ir a Iniciar Sesión
+                    </Button>
+                 </Link>
+            </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  // --- End Authorization Check ---
+
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -235,7 +274,7 @@ export default function PostInternshipPage() {
 
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                         <FormField control={form.control} name="location" render={({ field }) => ( <FormItem> <FormLabel>Ubicación *</FormLabel> <FormControl><Input placeholder="Ej: Resistencia, Chaco / Híbrido (Oficina/Remoto)" {...field} disabled={form.watch('isRemote')} /></FormControl> <FormMessage /> </FormItem> )}/>
-                        <FormField control={form.control} name="isRemote" render={({ field }) => ( <FormItem className="flex flex-row items-end space-x-3 space-y-0 pb-2"> <FormControl> <Checkbox checked={field.value} onCheckedChange={(checked) => { field.onChange(checked); if (checked) { form.setValue('location', 'Remoto'); } }}/> </FormControl> <div className="space-y-1 leading-none"><FormLabel>Es 100% Remota</FormLabel></div> </FormItem> )}/>
+                        <FormField control={form.control} name="isRemote" render={({ field }) => ( <FormItem className="flex flex-row items-end space-x-3 space-y-0 pb-2"> <FormControl> <Checkbox checked={field.value} onCheckedChange={(checked) => { const isChecked = checked === true; field.onChange(isChecked); if (isChecked) { form.setValue('location', 'Remoto'); } else { form.setValue('location', ''); /* Optionally clear location if unchecked */ } }}/> </FormControl> <div className="space-y-1 leading-none"><FormLabel>Es 100% Remota</FormLabel></div> </FormItem> )}/>
                     </div>
                 </section>
 
@@ -260,6 +299,7 @@ export default function PostInternshipPage() {
                         levels={PROFICIENCY_LEVELS}
                         icon={<CheckSquare size={20} />}
                         description="Selecciona las habilidades técnicas y el nivel mínimo deseado."
+                        // TODO: Add isMandatory prop if needed per skill/group
                     />
 
                     {/* Soft Skills Checkboxes */}
@@ -271,6 +311,7 @@ export default function PostInternshipPage() {
                         levels={SOFT_SKILL_LEVELS}
                         icon={<Brain size={20} />}
                          description="Selecciona las habilidades blandas deseadas o requeridas."
+                         // TODO: Add isMandatory prop if needed per skill/group
                     />
 
                     {/* Languages Checkboxes */}
@@ -282,8 +323,16 @@ export default function PostInternshipPage() {
                         levels={LANGUAGE_LEVELS}
                         icon={<Languages size={20} />}
                          description="Selecciona los idiomas y el nivel mínimo requerido."
+                          // TODO: Add isMandatory prop if needed per skill/group
                     />
-                    {/* TODO: Add 'mandatory' checkbox per skill category or per skill? For now, level implies requirement */}
+                     {/* TODO: Add 'mandatory' checkbox per skill category or per skill? For now, level implies requirement */}
+                      {/* Placeholder for a future 'isMandatory' toggle for requirements */}
+                     {/* <div className="flex items-center space-x-2">
+                        <Checkbox id="mandatory-skills" />
+                        <label htmlFor="mandatory-skills" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            ¿Son obligatorios todos los requisitos marcados? (Funcionalidad futura)
+                        </label>
+                    </div> */}
                 </section>
 
                 <Separator />

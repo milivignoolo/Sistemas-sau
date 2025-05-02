@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -9,9 +10,11 @@ import { cn } from "@/lib/utils"
 const Checkbox = React.forwardRef<
   React.ElementRef<typeof CheckboxPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
->(({ className, ...props }, ref) => (
+>(({ className, checked, onCheckedChange, ...props }, ref) => ( // Explicitly destructure checked and onCheckedChange
   <CheckboxPrimitive.Root
     ref={ref}
+    checked={checked} // Pass down the checked state
+    onCheckedChange={onCheckedChange} // Pass down the change handler
     className={cn(
       "peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
       className
@@ -28,3 +31,4 @@ const Checkbox = React.forwardRef<
 Checkbox.displayName = CheckboxPrimitive.Root.displayName
 
 export { Checkbox }
+
