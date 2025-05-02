@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,25 +18,57 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, MailCheck, Info, UserCheck, KeyRound } from 'lucide-react';
+import { Loader2, MailCheck, Info, UserCheck, KeyRound, CheckSquare, Languages, Brain } from 'lucide-react';
 
-// Mock Sysacad Data Fetching - Replace with actual API call
+// --- Predefined Lists ---
+const PREDEFINED_TECHNICAL_SKILLS = [
+    { id: 'javascript', name: 'JavaScript' },
+    { id: 'typescript', name: 'TypeScript' },
+    { id: 'react', name: 'React' },
+    { id: 'nextjs', name: 'Next.js' },
+    { id: 'nodejs', name: 'Node.js' },
+    { id: 'python', name: 'Python' },
+    { id: 'java', name: 'Java' },
+    { id: 'csharp', name: 'C#' },
+    { id: 'sql', name: 'SQL' },
+    { id: 'nosql', name: 'NoSQL (MongoDB, etc.)' },
+    { id: 'git', name: 'Git' },
+    { id: 'docker', name: 'Docker' },
+    { id: 'cloud', name: 'Cloud (AWS/GCP/Azure)' },
+    { id: 'html_css', name: 'HTML/CSS' },
+];
+
+const PREDEFINED_SOFT_SKILLS = [
+    { id: 'teamwork', name: 'Trabajo en Equipo' },
+    { id: 'communication', name: 'Comunicación Efectiva' },
+    { id: 'problem_solving', name: 'Resolución de Problemas' },
+    { id: 'adaptability', name: 'Adaptabilidad' },
+    { id: 'proactivity', name: 'Proactividad' },
+    { id: 'learning', name: 'Ganas de Aprender' },
+    { id: 'leadership', name: 'Liderazgo' },
+    { id: 'critical_thinking', name: 'Pensamiento Crítico' },
+];
+
+const PREDEFINED_LANGUAGES = [
+    { id: 'english', name: 'Inglés' },
+    { id: 'portuguese', name: 'Portugués' },
+    { id: 'french', name: 'Francés' },
+    { id: 'german', name: 'Alemán' },
+    { id: 'italian', name: 'Italiano' },
+];
+
+const PROFICIENCY_LEVELS = ['Básico', 'Intermedio', 'Avanzado'];
+const LANGUAGE_LEVELS = ['Básico (A1/A2)', 'Intermedio (B1/B2)', 'Avanzado (C1/C2)', 'Nativo'];
+const SOFT_SKILL_LEVELS = ['En Desarrollo', 'Desarrollado', 'Fuerte'];
+
+// --- Mock Data Fetching & Verification --- (Keep existing mock functions)
 async function fetchSysacadData(universityId: string, dni: string) {
   console.log(`Fetching data for Legajo: ${universityId}, DNI: ${dni}`);
-  // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 1500));
-
-  // Simulate finding user data
-  // In a real scenario, you'd hit an endpoint:
-  // const response = await fetch(`/api/sysacad?legajo=${universityId}&dni=${dni}`);
-  // const data = await response.json();
-  // if (!response.ok) throw new Error(data.message || 'Failed to fetch data');
-  // return data;
-
-  // Mock data
   if (universityId === '12345' && dni === '30123456') {
     return {
       fullName: 'Juan Alberto Pérez',
@@ -47,45 +79,37 @@ async function fetchSysacadData(universityId: string, dni: string) {
       gpa: 8.5,
       approvedSubjects: ['Álgebra', 'Análisis I', 'Física I', 'Programación I', 'Química General'],
       regularizedSubjects: ['Análisis II', 'Física II', 'Programación II'],
-      email: 'juan.perez.mock@utn.edu.ar', // Use a mock email for testing
+      email: 'juan.perez.mock@utn.edu.ar',
     };
   } else {
     throw new Error('Estudiante no encontrado en Sysacad.');
   }
 }
 
-// Mock Email Verification - Replace with actual API calls
 async function sendVerificationEmail(email: string) {
   console.log(`Sending verification email to: ${email}`);
-  // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 1000));
-  // In a real scenario, the backend generates and sends the code
   console.log(`Mock verification code sent (simulated): 123456`);
-  return true; // Indicate success
+  return true;
 }
 
 async function verifyCode(email: string, code: string) {
   console.log(`Verifying code ${code} for email: ${email}`);
-  // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 1000));
-  // In a real scenario, the backend verifies the code
-  if (code === '123456') { // Use the mock code
+  if (code === '123456') {
     return true;
   } else {
     throw new Error('Código de verificación incorrecto.');
   }
 }
 
-// Mock Account Creation - Replace with actual API call
 async function createStudentAccount(data: any) {
     console.log('Creating student account with data:', data);
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1500));
-    // In a real scenario, save the user to your database
     return { success: true, userId: 'mockUserId123' };
 }
 
-// Define Zod schemas for each step
+// --- Zod Schemas ---
 const stepOneSchema = z.object({
   universityId: z.string().regex(/^\d+$/, { message: 'El legajo debe contener solo números.' }).min(5, { message: 'El legajo debe tener al menos 5 dígitos.' }),
   dni: z.string().regex(/^\d+$/, { message: 'El DNI debe contener solo números.' }).min(7, { message: 'El DNI debe tener al menos 7 dígitos.' }),
@@ -95,12 +119,15 @@ const stepTwoSchema = z.object({
   verificationCode: z.string().length(6, { message: 'El código debe tener 6 dígitos.' }),
 });
 
+// Updated Step Three Schema
+const skillLevelSchema = z.record(z.string()).optional().default({}); // { skillId: level }
+
 const stepThreeSchema = z.object({
   availability: z.string().optional(),
-  technicalSkills: z.string().optional(),
-  softSkills: z.string().optional(),
+  technicalSkills: skillLevelSchema,
+  softSkills: skillLevelSchema,
   previousExperience: z.string().optional(),
-  languages: z.string().optional(),
+  languages: skillLevelSchema,
 });
 
 const stepFourSchema = z.object({
@@ -111,9 +138,7 @@ const stepFourSchema = z.object({
   path: ['confirmPassword'],
 });
 
-// Combine schemas for conditional validation (optional, can handle step by step)
-// const combinedSchema = stepOneSchema.merge(stepTwoSchema).merge(stepThreeSchema).merge(stepFourSchema);
-
+// --- Component Logic ---
 type Step = 'initial' | 'verify' | 'profile' | 'password' | 'complete' | 'error';
 
 interface SysacadStudentData {
@@ -126,6 +151,85 @@ interface SysacadStudentData {
     approvedSubjects: string[];
     regularizedSubjects: string[];
     email: string;
+}
+
+// Helper component for Skill Checkboxes
+interface SkillCheckboxGroupProps {
+    control: any;
+    name: keyof z.infer<typeof stepThreeSchema>; // 'technicalSkills', 'softSkills', 'languages'
+    label: string;
+    skills: { id: string; name: string }[];
+    levels: string[];
+    icon: React.ReactNode;
+}
+
+function SkillCheckboxGroup({ control, name, label, skills, levels, icon }: SkillCheckboxGroupProps) {
+    const fieldName = name; // Use the key directly
+
+    return (
+        <FormField
+            control={control}
+            name={fieldName}
+            render={({ field }) => (
+                <FormItem>
+                    <FormLabel className="text-lg font-semibold mb-3 flex items-center gap-2">{icon} {label}</FormLabel>
+                    <div className="space-y-3">
+                        {skills.map((skill) => (
+                            <div key={skill.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 border p-3 rounded-md bg-muted/50">
+                                <div className="flex items-center space-x-2 flex-grow">
+                                    <Checkbox
+                                        id={`${fieldName}-${skill.id}`}
+                                        checked={!!field.value?.[skill.id]}
+                                        onCheckedChange={(checked) => {
+                                            const currentSkills = { ...(field.value || {}) };
+                                            if (checked) {
+                                                currentSkills[skill.id] = levels[0]; // Default to first level
+                                            } else {
+                                                delete currentSkills[skill.id];
+                                            }
+                                            field.onChange(currentSkills);
+                                        }}
+                                    />
+                                    <label
+                                        htmlFor={`${fieldName}-${skill.id}`}
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-grow"
+                                    >
+                                        {skill.name}
+                                    </label>
+                                </div>
+                                {field.value?.[skill.id] && (
+                                    <div className="w-full sm:w-48">
+                                         <Select
+                                            value={field.value[skill.id]}
+                                            onValueChange={(level) => {
+                                                const currentSkills = { ...(field.value || {}) };
+                                                currentSkills[skill.id] = level;
+                                                field.onChange(currentSkills);
+                                            }}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccionar nivel" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {levels.map((level) => (
+                                                    <SelectItem key={level} value={level}>
+                                                        {level}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
+    );
 }
 
 
@@ -149,24 +253,24 @@ export function StudentRegistrationForm() {
     }
   };
 
-  const form = useForm<any>({ // Use 'any' for multi-step, or a combined type
+  const form = useForm<any>({
     resolver: zodResolver(getCurrentSchema()),
     defaultValues: {
       universityId: '',
       dni: '',
       verificationCode: '',
       availability: '',
-      technicalSkills: '',
-      softSkills: '',
+      technicalSkills: {}, // Initialize as empty object
+      softSkills: {},     // Initialize as empty object
       previousExperience: '',
-      languages: '',
+      languages: {},      // Initialize as empty object
       password: '',
       confirmPassword: '',
     },
-    mode: 'onChange', // Validate on change for better UX
+    mode: 'onChange',
   });
 
-   // Define submit handlers for each step
+   // Define submit handlers for each step (Keep existing handlers)
   const handleStepOneSubmit = async (values: z.infer<typeof stepOneSchema>) => {
     setIsLoading(true);
     setErrorMessage(null);
@@ -178,14 +282,13 @@ export function StudentRegistrationForm() {
       setStep('verify');
     } catch (error: any) {
       setErrorMessage(error.message || 'Ocurrió un error.');
-      // Optionally: setStep('error');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleStepTwoSubmit = async (values: z.infer<typeof stepTwoSchema>) => {
-     if (!studentData) return; // Should not happen
+     if (!studentData) return;
     setIsLoading(true);
     setErrorMessage(null);
     try {
@@ -201,27 +304,24 @@ export function StudentRegistrationForm() {
   };
 
   const handleStepThreeSubmit = async (values: z.infer<typeof stepThreeSchema>) => {
-    // Simply store the profile data and move to the next step
     setProfileData(values);
     setStep('password');
   };
 
   const handleStepFourSubmit = async (values: z.infer<typeof stepFourSchema>) => {
-     if (!studentData || !profileData) return; // Should not happen
+     if (!studentData || !profileData) return;
      setIsLoading(true);
      setErrorMessage(null);
      try {
         const finalUserData = {
             ...studentData,
-            ...profileData,
-            password: values.password, // Store the password (in real app, hash it on backend)
-            username: studentData.universityId, // Username is the legajo
+            profile: profileData, // Nest profile data
+            password: values.password,
+            username: studentData.universityId,
         };
         await createStudentAccount(finalUserData);
         toast({ title: '¡Registro Completo!', description: `Bienvenido/a, ${studentData.fullName}. Ya puedes iniciar sesión.` });
         setStep('complete');
-        // Optionally redirect to login or dashboard
-        // router.push('/login');
      } catch (error: any) {
         setErrorMessage(error.message || 'No se pudo crear la cuenta.');
      } finally {
@@ -229,35 +329,24 @@ export function StudentRegistrationForm() {
      }
   };
 
-  // Main submit handler routes to the correct step handler
+  // Main submit handler
   const onSubmit = async (values: any) => {
-    // Re-validate with the current schema before submitting the step
     const currentSchema = getCurrentSchema();
     const validationResult = currentSchema.safeParse(values);
 
     if (!validationResult.success) {
         console.error("Validation failed:", validationResult.error.flatten().fieldErrors);
-        // Errors should be displayed by FormMessage components
         return;
     }
 
     const validatedValues = validationResult.data;
 
     switch (step) {
-      case 'initial':
-        await handleStepOneSubmit(validatedValues as z.infer<typeof stepOneSchema>);
-        break;
-      case 'verify':
-        await handleStepTwoSubmit(validatedValues as z.infer<typeof stepTwoSchema>);
-        break;
-      case 'profile':
-        await handleStepThreeSubmit(validatedValues as z.infer<typeof stepThreeSchema>);
-        break;
-      case 'password':
-        await handleStepFourSubmit(validatedValues as z.infer<typeof stepFourSchema>);
-        break;
-      default:
-        console.log('Unhandled step:', step);
+      case 'initial': await handleStepOneSubmit(validatedValues as z.infer<typeof stepOneSchema>); break;
+      case 'verify': await handleStepTwoSubmit(validatedValues as z.infer<typeof stepTwoSchema>); break;
+      case 'profile': await handleStepThreeSubmit(validatedValues as z.infer<typeof stepThreeSchema>); break;
+      case 'password': await handleStepFourSubmit(validatedValues as z.infer<typeof stepFourSchema>); break;
+      default: console.log('Unhandled step:', step);
     }
   };
 
@@ -276,7 +365,8 @@ export function StudentRegistrationForm() {
         {/* Step 1: Initial Input */}
         {step === 'initial' && (
           <>
-            <FormField
+            {/* ... (Keep Legajo and DNI fields) ... */}
+             <FormField
               control={form.control}
               name="universityId"
               render={({ field }) => (
@@ -313,6 +403,7 @@ export function StudentRegistrationForm() {
         {/* Step 2: Verify Email */}
         {step === 'verify' && studentData && (
           <>
+           {/* ... (Keep Verification Code field and buttons) ... */}
             <Alert variant="default" className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
               <Info className="h-4 w-4 text-blue-700 dark:text-blue-300" />
               <AlertTitle className="text-blue-800 dark:text-blue-200">Verificación Requerida</AlertTitle>
@@ -343,12 +434,13 @@ export function StudentRegistrationForm() {
           </>
         )}
 
-        {/* Step 3: Profile Details */}
+        {/* Step 3: Profile Details - Updated */}
         {step === 'profile' && studentData && (
           <>
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Completa tu Perfil</h3>
-            <Alert variant="default" className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800 mb-4">
-                <UserCheck className="h-4 w-4 text-green-700 dark:text-green-300" />
+             <Alert variant="default" className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800 mb-4">
+                 {/* ... (Keep Sysacad Data Alert) ... */}
+                 <UserCheck className="h-4 w-4 text-green-700 dark:text-green-300" />
                 <AlertTitle className="text-green-800 dark:text-green-200">Datos de Sysacad</AlertTitle>
                 <AlertDescription className="text-green-700 dark:text-green-300 text-xs space-y-1">
                    <p><strong>Nombre:</strong> {studentData.fullName}</p>
@@ -371,34 +463,38 @@ export function StudentRegistrationForm() {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="technicalSkills"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Habilidades Técnicas</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Ej: React, Node.js, Python, SQL, Git, Docker..." {...field} />
-                  </FormControl>
-                  <FormDescription>Separa las habilidades con comas.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
+
+            {/* Technical Skills Checkboxes */}
+            <SkillCheckboxGroup
+                control={form.control}
+                name="technicalSkills"
+                label="Habilidades Técnicas"
+                skills={PREDEFINED_TECHNICAL_SKILLS}
+                levels={PROFICIENCY_LEVELS}
+                icon={<CheckSquare size={20} />}
             />
-            <FormField
-              control={form.control}
-              name="softSkills"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Habilidades Blandas</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Ej: Trabajo en equipo, Comunicación, Resolución de problemas..." {...field} />
-                  </FormControl>
-                   <FormDescription>Separa las habilidades con comas.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
+
+            {/* Soft Skills Checkboxes */}
+             <SkillCheckboxGroup
+                control={form.control}
+                name="softSkills"
+                label="Habilidades Blandas"
+                skills={PREDEFINED_SOFT_SKILLS}
+                levels={SOFT_SKILL_LEVELS}
+                icon={<Brain size={20} />}
             />
+
+             {/* Languages Checkboxes */}
+             <SkillCheckboxGroup
+                control={form.control}
+                name="languages"
+                label="Idiomas"
+                skills={PREDEFINED_LANGUAGES}
+                levels={LANGUAGE_LEVELS}
+                icon={<Languages size={20} />}
+            />
+
+
             <FormField
               control={form.control}
               name="previousExperience"
@@ -412,20 +508,7 @@ export function StudentRegistrationForm() {
                 </FormItem>
               )}
             />
-             <FormField
-              control={form.control}
-              name="languages"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Idiomas (Opcional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ej: Inglés B2, Portugués A1" {...field} />
-                  </FormControl>
-                   <FormDescription>Indica el idioma y tu nivel.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
             <Button type="submit" className="w-full">
               Continuar a Crear Contraseña
             </Button>
@@ -438,6 +521,7 @@ export function StudentRegistrationForm() {
         {/* Step 4: Set Password */}
         {step === 'password' && studentData && (
           <>
+            {/* ... (Keep Password fields and buttons) ... */}
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Crear Contraseña</h3>
              <Alert variant="default" className="mb-4">
               <KeyRound className="h-4 w-4" />
@@ -485,6 +569,7 @@ export function StudentRegistrationForm() {
          {/* Step 5: Complete */}
          {step === 'complete' && studentData && (
             <Alert variant="default" className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+                 {/* ... (Keep Success Alert) ... */}
                  <MailCheck className="h-4 w-4 text-green-700 dark:text-green-300"/>
                 <AlertTitle className="text-green-800 dark:text-green-200">¡Registro Exitoso!</AlertTitle>
                 <AlertDescription className="text-green-700 dark:text-green-300">
