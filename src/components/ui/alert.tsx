@@ -28,13 +28,13 @@ const alertVariants = cva(
 const Alert = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
->(({ className, variant, children, ...props }, ref) => {
+>(({ className, variant = "default", children, ...props }, ref) => { // Ensure default variant is set
     // Determine icon based on variant
     const Icon =
         variant === "destructive" ? AlertCircle :
         variant === "success" ? CheckSquare :
         variant === "info" ? Info :
-        TriangleAlert; // Default icon if needed or adjust
+        TriangleAlert; // Default icon (can be TriangleAlert or Info)
 
     return (
       <div
@@ -43,8 +43,8 @@ const Alert = React.forwardRef<
         className={cn(alertVariants({ variant }), className)}
         {...props}
       >
-          {/* Conditionally render icon if not provided as a child */}
-         {variant && <Icon className="h-4 w-4" />}
+          {/* Always render an icon based on the variant */}
+         <Icon className="h-4 w-4" />
          {children}
       </div>
     )
