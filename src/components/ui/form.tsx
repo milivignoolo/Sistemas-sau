@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -107,10 +108,13 @@ const FormControl = React.forwardRef<
   React.ElementRef<typeof Slot>,
   React.ComponentPropsWithoutRef<typeof Slot>
 >(({ children, ...props }, ref) => {
-  const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
+  const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
+  const childNodes: React.ReactNode[] = React.Children.toArray(children);
 
-  // Remove explicit check, Slot handles this
-  // const onlyChild = React.Children.only(children);
+  // Determine the content to pass to Slot
+  // If there's more than one child, wrap them in a fragment.
+  // Otherwise, pass the single child directly.
+  const slotContent = childNodes.length > 1 ? <>{childNodes}</> : children;
 
   return (
     <Slot
@@ -124,10 +128,10 @@ const FormControl = React.forwardRef<
       aria-invalid={!!error}
       {...props}
     >
-      {children} {/* Pass children directly to Slot */}
+      {slotContent}
     </Slot>
-  )
-})
+  );
+});
 FormControl.displayName = "FormControl";
 
 
@@ -182,3 +186,4 @@ export {
   FormMessage,
   FormField,
 }
+
