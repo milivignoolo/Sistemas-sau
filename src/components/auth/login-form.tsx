@@ -42,52 +42,58 @@ async function authenticateUser(username: string, password: string): Promise<{ s
   console.log(`Attempting to authenticate user: ${username} with password: ${password}`);
   await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
-  // Fetch ALL potential user profiles from localStorage
-  // In a real app, this would be a single API call to the backend
-  const storedUserProfile = safeLocalStorageGet('userProfile');
-
   let isAuthenticated = false;
   let userType: 'student' | 'company' | 'unknown' = 'unknown';
   let foundProfile: any = null;
 
-  console.log("Checking stored profile:", storedUserProfile);
+  // --- MOCK USER CHECK (Prioritized for Testing) ---
+  const validStudent = { username: '12345', password: 'password123', userType: 'student' };
+  const validCompany = { username: '12345678901', password: 'password123', userType: 'company' };
 
-  if (storedUserProfile) {
-        // Check if the stored username matches the input username
-        // Ensure username comparison accounts for CUIT (no dashes) vs Legajo
-        const normalizedStoredUsername = storedUserProfile.username?.replace?.(/-/g, '') || storedUserProfile.username;
-        const normalizedInputUsername = username.replace(/-/g, '');
-
-        console.log(`Comparing input: ${normalizedInputUsername} with stored: ${normalizedStoredUsername}`);
-        console.log(`Comparing password input: ${password} with stored: ${storedUserProfile.password}`);
-
-        if (normalizedStoredUsername === normalizedInputUsername && storedUserProfile.password === password) {
-            isAuthenticated = true;
-            userType = storedUserProfile.userType as 'student' | 'company';
-            foundProfile = storedUserProfile;
-            console.log("Credentials match!");
-        } else {
-             console.log("Credentials do NOT match.");
-        }
+  console.log(`Comparing with MOCK Student: User='${validStudent.username}', Pass='${validStudent.password}'`);
+  if (username === validStudent.username && password === validStudent.password) {
+    isAuthenticated = true;
+    userType = 'student';
+    foundProfile = validStudent; // Use mock data
+    console.log("Matched MOCK student user.");
   } else {
-     console.log("No user profile found in localStorage.");
-     // For mock testing, add default mock users if nothing is stored
-     const validStudent = { username: '12345', password: 'password123', userType: 'student' };
-     // Updated mock company credentials as requested
-     const validCompany = { username: '12345678901', password: 'password123', userType: 'company' };
-
-      if (username === validStudent.username && password === validStudent.password) {
-        isAuthenticated = true;
-        userType = 'student';
-        foundProfile = validStudent; // Use mock data
-         console.log("Matched MOCK student user.");
-      } else if (username === validCompany.username && password === validCompany.password) {
+      console.log(`Comparing with MOCK Company: User='${validCompany.username}', Pass='${validCompany.password}'`);
+      if (username === validCompany.username && password === validCompany.password) {
         isAuthenticated = true;
         userType = 'company';
         foundProfile = validCompany; // Use mock data
-         console.log("Matched MOCK company user.");
+        console.log("Matched MOCK company user.");
       } else {
-           console.log("No stored profile and input does not match mock credentials.");
+          console.log("Input does not match mock credentials.");
+      }
+  }
+
+  // --- LOCALSTORAGE CHECK (If not matched by mock credentials) ---
+  if (!isAuthenticated) {
+      console.log("Checking credentials against localStorage profile...");
+      const storedUserProfile = safeLocalStorageGet('userProfile');
+      console.log("Stored profile:", storedUserProfile);
+
+      if (storedUserProfile) {
+          // Check if the stored username matches the input username
+          // Ensure username comparison accounts for CUIT (no dashes) vs Legajo
+          const normalizedStoredUsername = storedUserProfile.username?.replace?.(/-/g, '') || storedUserProfile.username;
+          // Username passed in is already normalized
+          const normalizedInputUsername = username;
+
+          console.log(`Comparing input: ${normalizedInputUsername} with stored: ${normalizedStoredUsername}`);
+          console.log(`Comparing password input: ${password} with stored: ${storedUserProfile.password}`);
+
+          if (normalizedStoredUsername === normalizedInputUsername && storedUserProfile.password === password) {
+              isAuthenticated = true;
+              userType = storedUserProfile.userType as 'student' | 'company';
+              foundProfile = storedUserProfile;
+              console.log("Credentials match stored localStorage profile!");
+          } else {
+              console.log("Credentials do NOT match stored localStorage profile.");
+          }
+      } else {
+          console.log("No user profile found in localStorage.");
       }
   }
 
@@ -97,11 +103,11 @@ async function authenticateUser(username: string, password: string): Promise<{ s
     // IMPORTANT: Re-save the found profile to ensure 'userProfile' key is set correctly, especially if using mock data fallback
     if (typeof window !== 'undefined') {
         localStorage.setItem('userProfile', JSON.stringify(foundProfile));
-        console.log("Saved found/mock profile to localStorage.");
+        console.log("Saved found profile to localStorage.");
     }
     return { success: true, userType: userType, username: username };
   } else {
-    console.error(`Authentication failed for user: ${username}.`);
+    console.error(`Authentication failed for user: ${username}.`); // This log will still appear if both mock and stored fail
     throw new Error('Usuario o contraseña incorrectos.');
   }
 }
@@ -173,7 +179,7 @@ export function LoginForm() {
       }
       // No explicit else needed because authenticateUser throws on failure
     } catch (error: any) {
-      console.error("Login error:", error);
+      console.error("Login error caught in onSubmit:", error);
       setErrorMessage(error.message || 'Error al iniciar sesión.');
       // Trigger validation again on error to show messages if needed
       form.trigger();
@@ -252,3 +258,4 @@ export function LoginForm() {
     </Form>
   );
 }
+
