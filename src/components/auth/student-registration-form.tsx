@@ -178,12 +178,12 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       case 'verify': return stepTwoSchema;
       case 'profile': return stepThreeSchema;
       case 'password': return stepFourSchema;
-      default: return z.object({}); // Empty schema for other steps
+      default: return null; // Return null for steps without a form schema
     }
   };
 
   const form = useForm<any>({
-    resolver: zodResolver(getCurrentSchema()),
+    resolver: zodResolver(getCurrentSchema() ?? z.object({})), // Use empty schema if currentSchema is null
     defaultValues: {
       universityId: '',
       dni: '',
@@ -268,9 +268,22 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
 
   // Main submit handler
   const onSubmit = async (values: any) => {
+    // Prevent submission if already completed or in error state
+    if (step === 'complete' || step === 'error') {
+        console.log('Submission blocked, current step:', step);
+        return;
+    }
+
     const currentSchema = getCurrentSchema();
+    // If there's no schema for the current step, don't proceed with validation/submission
+    if (!currentSchema) {
+        console.log('No schema found for current step:', step);
+        return;
+    }
+
     // Use trigger to manually validate based on current schema's fields
-    const fieldsToValidate = Object.keys(currentSchema.shape) as (keyof typeof values)[];
+    // Ensure currentSchema.shape exists before accessing it
+    const fieldsToValidate = currentSchema.shape ? Object.keys(currentSchema.shape) as (keyof typeof values)[] : [];
     const isValid = await form.trigger(fieldsToValidate);
 
     if (!isValid) {
@@ -312,6 +325,16 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       default: console.log('Unhandled step:', step);
     }
   };
+
+   // Update resolver when step changes
+   React.useEffect(() => {
+    const currentSchema = getCurrentSchema();
+    // @ts-ignore - Dynamically updating resolver
+    form.resolver = zodResolver(currentSchema ?? z.object({}));
+    // Trigger validation after a short delay to ensure state is updated
+    setTimeout(() => form.trigger(), 50);
+  }, [step, form]);
+
 
   return (
     <Form {...form}>
@@ -565,3 +588,4 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
     </Form>
   );
 }
+
