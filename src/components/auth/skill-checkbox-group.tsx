@@ -17,25 +17,27 @@ interface SkillCheckboxGroupProps {
     levels: string[];
     icon: React.ReactNode;
     description?: string; // Added optional description prop
+    disabled?: boolean; // Added disabled prop
 }
 
-export function SkillCheckboxGroup({ control, name, label, skills, levels, icon, description }: SkillCheckboxGroupProps) {
+export function SkillCheckboxGroup({ control, name, label, skills, levels, icon, description, disabled }: SkillCheckboxGroupProps) {
     return (
         <FormField
             control={control}
             name={name} // Use the string name directly
             render={({ field }) => (
                 <FormItem>
-                    <FormLabel className="text-lg font-semibold mb-3 flex items-center gap-2">{icon} {label}</FormLabel>
+                    <FormLabel className={cn("text-lg font-semibold mb-3 flex items-center gap-2", disabled && "text-muted-foreground/70")}>{icon} {label}</FormLabel>
                     {description && <FormDescription className="mb-4">{description}</FormDescription>} {/* Display description */}
                     <div className="space-y-3">
                         {skills.map((skill) => (
-                            <div key={skill.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 border p-3 rounded-md bg-muted/50">
+                            <div key={skill.id} className={cn("flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 border p-3 rounded-md", disabled ? "bg-muted/20 border-dashed" : "bg-muted/50")}>
                                 <div className="flex items-center space-x-2 flex-grow">
                                     <Checkbox
                                         id={`${name}-${skill.id}`}
                                         checked={!!field.value?.[skill.id]}
                                         onCheckedChange={(checked) => {
+                                            if (disabled) return; // Prevent changes if disabled
                                             const currentSkills = { ...(field.value || {}) };
                                             if (checked) {
                                                 currentSkills[skill.id] = levels[0]; // Default to first level
@@ -44,10 +46,14 @@ export function SkillCheckboxGroup({ control, name, label, skills, levels, icon,
                                             }
                                             field.onChange(currentSkills);
                                         }}
+                                        disabled={disabled} // Pass disabled state to Checkbox
                                     />
                                     <label
                                         htmlFor={`${name}-${skill.id}`}
-                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-grow"
+                                        className={cn(
+                                            "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-grow",
+                                            disabled && "text-muted-foreground/70"
+                                        )}
                                     >
                                         {skill.name}
                                     </label>
@@ -57,13 +63,16 @@ export function SkillCheckboxGroup({ control, name, label, skills, levels, icon,
                                          <Select
                                             value={field.value[skill.id]}
                                             onValueChange={(level) => {
+                                                if (disabled) return; // Prevent changes if disabled
                                                 const currentSkills = { ...(field.value || {}) };
                                                 currentSkills[skill.id] = level;
                                                 field.onChange(currentSkills);
                                             }}
+                                            disabled={disabled} // Pass disabled state to Select
                                         >
                                             <FormControl>
-                                                <SelectTrigger>
+                                                {/* Add disabled styling to trigger */}
+                                                <SelectTrigger disabled={disabled} className={disabled ? "bg-muted/30 border-dashed" : ""}>
                                                     <SelectValue placeholder="Seleccionar nivel" />
                                                 </SelectTrigger>
                                             </FormControl>

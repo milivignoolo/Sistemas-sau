@@ -18,13 +18,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Import useEffect
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 // Removed useRouter import as navigation is handled by the parent via onRegisterSuccess
 import { Loader2, MailCheck, Info, UserCheck, KeyRound, CheckSquare, Languages, Brain } from 'lucide-react';
-import { SkillCheckboxGroup } from './skill-checkbox-group'; // Corrected import path
+import { SkillCheckboxGroup } from './skill-checkbox-group';
 
 
 // --- Predefined Lists ---
@@ -68,8 +68,42 @@ const PROFICIENCY_LEVELS = ['Básico', 'Intermedio', 'Avanzado'];
 const LANGUAGE_LEVELS = ['Básico (A1/A2)', 'Intermedio (B1/B2)', 'Avanzado (C1/C2)', 'Nativo'];
 const SOFT_SKILL_LEVELS = ['En Desarrollo', 'Desarrollado', 'Fuerte'];
 
-// --- Mock Data Fetching & Verification --- (Keep existing mock functions)
-async function fetchSysacadData(universityId: string, dni: string) {
+// --- Mock Data Fetching & Verification ---
+// Function to safely interact with localStorage
+const safeLocalStorageGet = (key: string) => {
+    if (typeof window !== 'undefined') {
+        try {
+            const item = localStorage.getItem(key);
+            return item ? JSON.parse(item) : null;
+        } catch (error) {
+            console.error(`Error reading localStorage key “${key}”:`, error);
+            return null;
+        }
+    }
+    return null;
+};
+
+const safeLocalStorageSet = (key: string, value: any) => {
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+            console.error(`Error setting localStorage key “${key}”:`, error);
+        }
+    }
+};
+
+const safeLocalStorageRemove = (key: string) => {
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.removeItem(key);
+        } catch (error) {
+            console.error(`Error removing localStorage key “${key}”:`, error);
+        }
+    }
+};
+
+async function fetchSysacadData(universityId: string, dni: string): Promise<SysacadStudentData> {
   console.log(`Fetching data for Legajo: ${universityId}, DNI: ${dni}`);
   await new Promise(resolve => setTimeout(resolve, 1500));
   if (universityId === '12345' && dni === '30123456') {
@@ -93,13 +127,17 @@ async function sendVerificationEmail(email: string) {
   console.log(`Sending verification email to: ${email}`);
   await new Promise(resolve => setTimeout(resolve, 1000));
   console.log(`Mock verification code sent (simulated): 123456`);
+  // Store the mock code for verification step
+  safeLocalStorageSet('studentVerificationCode', '123456');
   return true;
 }
 
 async function verifyCode(email: string, code: string) {
   console.log(`Verifying code ${code} for email: ${email}`);
+  const storedCode = safeLocalStorageGet('studentVerificationCode');
   await new Promise(resolve => setTimeout(resolve, 1000));
-  if (code === '123456') {
+  if (code === storedCode && storedCode !== null) { // Ensure storedCode is not null
+    safeLocalStorageRemove('studentVerificationCode'); // Remove code after successful verification
     return true;
   } else {
     throw new Error('Código de verificación incorrecto.');
@@ -107,9 +145,14 @@ async function verifyCode(email: string, code: string) {
 }
 
 async function createStudentAccount(data: any) {
-    console.log('Creating student account with data:', data);
+    console.log('Simulating saving student account with data:', data);
     await new Promise(resolve => setTimeout(resolve, 1500));
-    return { success: true, userId: 'mockUserId123' };
+    // Simulate saving the final combined profile to localStorage
+    safeLocalStorageSet('userProfile', { ...data, userType: 'student' });
+    // Clear temporary registration data
+    safeLocalStorageRemove('studentRegData');
+    safeLocalStorageRemove('studentProfileData');
+    return { success: true, userId: data.universityId }; // Use universityId as mock userId
 }
 
 // --- Zod Schemas ---
@@ -163,12 +206,12 @@ interface StudentRegistrationFormProps {
 
 export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrationFormProps) {
   const { toast } = useToast();
-  // Removed router instance
   const [step, setStep] = useState<Step>('initial');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [studentData, setStudentData] = useState<SysacadStudentData | null>(null);
-  const [profileData, setProfileData] = useState<z.infer<typeof stepThreeSchema> | null>(null);
+  // No longer need local state for studentData and profileData, will use localStorage
+  // const [studentData, setStudentData] = useState<SysacadStudentData | null>(null);
+  // const [profileData, setProfileData] = useState<z.infer<typeof stepThreeSchema> | null>(null);
 
 
   // Determine the current schema based on the step
@@ -178,7 +221,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       case 'verify': return stepTwoSchema;
       case 'profile': return stepThreeSchema;
       case 'password': return stepFourSchema;
-      default: return z.object({}); // Return empty schema for steps without a form schema
+      default: return z.object({}); // Empty schema for non-form steps
     }
   };
 
@@ -189,30 +232,30 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       dni: '',
       verificationCode: '',
       availability: '',
-      technicalSkills: {}, // Initialize as empty object
-      softSkills: {},     // Initialize as empty object
+      technicalSkills: {},
+      softSkills: {},
       previousExperience: '',
-      languages: {},      // Initialize as empty object
+      languages: {},
       password: '',
       confirmPassword: '',
     },
-    mode: 'onBlur', // Changed mode to onBlur for potentially better performance
+    mode: 'onBlur',
     reValidateMode: 'onChange',
   });
 
-   // Define submit handlers for each step (Keep existing handlers)
+   // Define submit handlers for each step
   const handleStepOneSubmit = async (values: z.infer<typeof stepOneSchema>) => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
       const data = await fetchSysacadData(values.universityId, values.dni);
-      setStudentData(data);
+      // Store validated initial data in localStorage
+      safeLocalStorageSet('studentRegData', data);
       await sendVerificationEmail(data.email);
       toast({ title: 'Verifica tu Correo', description: `Se envió un código de verificación a ${data.email}. (Mock: 123456)` });
       setStep('verify');
     } catch (error: any) {
       setErrorMessage(error.message || 'Ocurrió un error.');
-      // Set error on relevant fields if possible
        if (error.message.includes('Sysacad')) {
            form.setError("universityId", { type: "manual", message: error.message });
            form.setError("dni", { type: "manual", message: error.message });
@@ -223,7 +266,13 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
   };
 
   const handleStepTwoSubmit = async (values: z.infer<typeof stepTwoSchema>) => {
-     if (!studentData) return;
+     const studentData = safeLocalStorageGet('studentRegData');
+     if (!studentData) {
+        console.error("Verification step reached without initial data.");
+        setErrorMessage("Error interno: Faltan datos de Sysacad. Por favor, reinicia el registro.");
+        setStep('error');
+        return;
+     }
     setIsLoading(true);
     setErrorMessage(null);
     try {
@@ -239,25 +288,34 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
   };
 
   const handleStepThreeSubmit = async (values: z.infer<typeof stepThreeSchema>) => {
-    setProfileData(values);
+    // Store profile data in localStorage
+    safeLocalStorageSet('studentProfileData', values);
     setStep('password');
   };
 
   const handleStepFourSubmit = async (values: z.infer<typeof stepFourSchema>) => {
-     if (!studentData || !profileData) return;
+     const studentData = safeLocalStorageGet('studentRegData');
+     const profileData = safeLocalStorageGet('studentProfileData');
+
+     if (!studentData || !profileData) {
+        console.error("Password step reached without initial or profile data.");
+        setErrorMessage("Error interno: Faltan datos para crear la cuenta. Por favor, reinicia el registro.");
+        setStep('error');
+        return;
+     }
      setIsLoading(true);
      setErrorMessage(null);
      try {
         const finalUserData = {
             ...studentData,
-            profile: profileData, // Nest profile data
-            password: values.password,
-            username: studentData.universityId,
+            profile: profileData,
+            password: values.password, // In a real app, hash the password server-side
+            username: studentData.universityId, // Username is the university ID
         };
         await createStudentAccount(finalUserData);
         toast({ title: '¡Registro Completo!', description: `Bienvenido/a, ${studentData.fullName}. Ya puedes iniciar sesión.` });
-        setStep('complete'); // Move to complete state
-        onRegisterSuccess(); // Call the success callback
+        setStep('complete');
+        onRegisterSuccess();
      } catch (error: any) {
         setErrorMessage(error.message || 'No se pudo crear la cuenta.');
         setStep('error')
@@ -268,35 +326,34 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
 
   // Main submit handler
  const onSubmit = async (values: any) => {
-    // Prevent submission if already completed or in error state
-    if (step === 'complete' || step === 'error') {
-        console.log('Submission blocked, current step:', step);
-        return;
-    }
+    if (step === 'complete' || step === 'error') return;
 
     const currentSchema = getCurrentSchema();
-    if (!currentSchema || typeof currentSchema.shape !== 'object' || currentSchema.shape === null) {
-        console.error('Invalid schema for current step:', step);
-        toast({
-            title: 'Error Interno',
-            description: 'No se pudo determinar la validación para este paso.',
-            variant: 'destructive',
-        });
+    if (!currentSchema || Object.keys(currentSchema.shape || {}).length === 0) {
+        console.error('Invalid or empty schema for current step:', step);
+        // Decide how to handle this - maybe proceed if it's a non-form step?
+        // For now, just return or show an error.
+        if (step === 'initial' || step === 'verify' || step === 'profile' || step === 'password') {
+             toast({
+                title: 'Error Interno',
+                description: 'No se pudo procesar este paso.',
+                variant: 'destructive',
+             });
+        } else {
+            // Allow progressing through non-form steps if needed, though handlers should manage this.
+            console.warn(`onSubmit called for step '${step}' with no form schema.`);
+        }
         return;
     }
 
-    // Use trigger to manually validate based on current schema's fields
     const fieldsToValidate = Object.keys(currentSchema.shape) as (keyof typeof values)[];
     const isValid = await form.trigger(fieldsToValidate);
 
-
     if (!isValid) {
         console.error("Validation failed:", form.formState.errors);
-         // Find the first error message to display
          const errors = form.formState.errors;
          const firstErrorField = fieldsToValidate?.find(field => errors[field]);
          const firstErrorMessage = firstErrorField ? errors[firstErrorField]?.message : 'Por favor, corrige los errores marcados.';
-
          toast({
              title: 'Error de Validación',
              description: typeof firstErrorMessage === 'string' ? firstErrorMessage : 'Por favor, revisa el formulario.',
@@ -305,11 +362,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
         return;
     }
 
-    // Parse validated values using the current schema
-    // Use getValues() to ensure we have the latest form state after trigger
     const validationResult = currentSchema.safeParse(form.getValues());
      if (!validationResult.success) {
-        // This should theoretically not happen if trigger passed, but good safety check
         console.error("Schema parsing failed after trigger passed:", validationResult.error.flatten().fieldErrors);
         toast({
              title: 'Error de Datos',
@@ -321,35 +375,64 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
 
     const validatedValues = validationResult.data;
 
-
     switch (step) {
       case 'initial': await handleStepOneSubmit(validatedValues as z.infer<typeof stepOneSchema>); break;
       case 'verify': await handleStepTwoSubmit(validatedValues as z.infer<typeof stepTwoSchema>); break;
       case 'profile': await handleStepThreeSubmit(validatedValues as z.infer<typeof stepThreeSchema>); break;
       case 'password': await handleStepFourSubmit(validatedValues as z.infer<typeof stepFourSchema>); break;
-      default: console.log('Unhandled step:', step);
+      default: console.log('Unhandled step in onSubmit:', step);
     }
   };
 
-   // Update resolver when step changes
-   React.useEffect(() => {
+   // Update resolver when step changes and load data from localStorage
+   useEffect(() => {
     const currentSchema = getCurrentSchema();
     // @ts-ignore - Dynamically updating resolver
     form.resolver = zodResolver(currentSchema);
+
+    // Load data from localStorage for the current step if available
+    const studentRegData = safeLocalStorageGet('studentRegData');
+    const studentProfileData = safeLocalStorageGet('studentProfileData');
+
+    // Reset form with loaded data or default values
+    form.reset({
+      // Step 1 defaults (always clear these unless loading a specific unfinished step 1)
+      universityId: '',
+      dni: '',
+      // Step 2 default
+      verificationCode: '',
+      // Step 3 defaults (load from localStorage if available)
+      availability: studentProfileData?.availability || '',
+      technicalSkills: studentProfileData?.technicalSkills || {},
+      softSkills: studentProfileData?.softSkills || {},
+      previousExperience: studentProfileData?.previousExperience || '',
+      languages: studentProfileData?.languages || {},
+      // Step 4 defaults
+      password: '',
+      confirmPassword: '',
+    });
+
+
     // Trigger validation after a short delay to ensure state is updated
-    // Only trigger validation if there's a schema for the current step
-    if (currentSchema && currentSchema.shape) { // Check if shape exists
+    if (currentSchema && Object.keys(currentSchema.shape || {}).length > 0) {
         setTimeout(() => form.trigger(), 50);
     }
   }, [step, form]);
 
 
+  // Helper to get student data for display, avoiding direct state access
+  const getDisplayStudentData = (): SysacadStudentData | null => {
+      return safeLocalStorageGet('studentRegData');
+  };
+
+  const studentDataForDisplay = getDisplayStudentData(); // Get data for display
+
+
   return (
     <Form {...form}>
-      {/* Pass the onSubmit handler directly */}
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
-        {errorMessage && step !== 'error' && ( // Show error inline unless in final error step
+        {errorMessage && step !== 'error' && (
           <Alert variant="destructive">
              <Info className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
@@ -395,13 +478,13 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
         )}
 
         {/* Step 2: Verify Email */}
-        {step === 'verify' && studentData && (
+        {step === 'verify' && studentDataForDisplay && (
           <>
             <Alert variant="default" className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
               <Info className="h-4 w-4 text-blue-700 dark:text-blue-300" />
               <AlertTitle className="text-blue-800 dark:text-blue-200">Verificación Requerida</AlertTitle>
               <AlertDescription className="text-blue-700 dark:text-blue-300">
-                Se ha enviado un código de verificación a tu correo electrónico institucional: <strong>{studentData.email}</strong>. Por favor, ingrésalo a continuación. (Mock: Usa 123456)
+                Se ha enviado un código de verificación a tu correo electrónico institucional: <strong>{studentDataForDisplay.email}</strong>. Por favor, ingrésalo a continuación. (Mock: Usa 123456)
               </AlertDescription>
             </Alert>
             <FormField
@@ -417,7 +500,6 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                 </FormItem>
               )}
             />
-            {/* Use type="submit" for the button within the form */}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MailCheck className="mr-2 h-4 w-4"/>}
               Verificar Código
@@ -425,25 +507,21 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
              <Button type="button" variant="link" size="sm" onClick={() => setStep('initial')} disabled={isLoading} className="w-full mt-2 text-muted-foreground">
                 Volver e ingresar Legajo/DNI
             </Button>
-             {/* TODO: Add resend code functionality */}
-             {/* <Button variant="link" size="sm" disabled={isLoading} className="w-full mt-1 text-primary">
-                Reenviar Código
-             </Button> */}
           </>
         )}
 
         {/* Step 3: Profile Details - Updated */}
-        {step === 'profile' && studentData && (
+        {step === 'profile' && studentDataForDisplay && (
           <>
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Completa tu Perfil</h3>
              <Alert variant="default" className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800 mb-4">
                  <UserCheck className="h-4 w-4 text-green-700 dark:text-green-300" />
                 <AlertTitle className="text-green-800 dark:text-green-200">Datos de Sysacad</AlertTitle>
                 <AlertDescription className="text-green-700 dark:text-green-300 text-xs space-y-1">
-                   <p><strong>Nombre:</strong> {studentData.fullName}</p>
-                   <p><strong>Carrera:</strong> {studentData.career} ({studentData.currentYear}° año)</p>
-                   <p><strong>Promedio:</strong> {studentData.gpa}</p>
-                   <p><strong>Email:</strong> {studentData.email}</p>
+                   <p><strong>Nombre:</strong> {studentDataForDisplay.fullName}</p>
+                   <p><strong>Carrera:</strong> {studentDataForDisplay.career} ({studentDataForDisplay.currentYear}° año)</p>
+                   <p><strong>Promedio:</strong> {studentDataForDisplay.gpa}</p>
+                   <p><strong>Email:</strong> {studentDataForDisplay.email}</p>
                  </AlertDescription>
             </Alert>
 
@@ -491,7 +569,6 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                 icon={<Languages size={20} />}
             />
 
-
             <FormField
               control={form.control}
               name="previousExperience"
@@ -506,7 +583,6 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
               )}
             />
 
-            {/* Use type="submit" for the button within the form */}
             <Button type="submit" className="w-full">
               Continuar a Crear Contraseña
             </Button>
@@ -517,14 +593,14 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
         )}
 
         {/* Step 4: Set Password */}
-        {step === 'password' && studentData && (
+        {step === 'password' && studentDataForDisplay && ( // Use display data
           <>
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Crear Contraseña</h3>
              <Alert variant="default" className="mb-4">
               <KeyRound className="h-4 w-4" />
               <AlertTitle>Último Paso</AlertTitle>
               <AlertDescription>
-                Crea una contraseña segura para tu cuenta. Tu nombre de usuario será tu número de legajo: <strong>{studentData.universityId}</strong>.
+                Crea una contraseña segura para tu cuenta. Tu nombre de usuario será tu número de legajo: <strong>{studentDataForDisplay.universityId}</strong>.
               </AlertDescription>
             </Alert>
             <FormField
@@ -553,7 +629,6 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                 </FormItem>
               )}
             />
-            {/* Use type="submit" for the button within the form */}
             <Button type="submit" className="w-full" disabled={isLoading}>
                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}
               Completar Registro
@@ -565,12 +640,12 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
         )}
 
          {/* Step 5: Complete */}
-         {step === 'complete' && studentData && (
+         {step === 'complete' && studentDataForDisplay && ( // Use display data
              <Alert variant="success">
                  <CheckSquare className="h-4 w-4"/>
                 <AlertTitle>¡Registro Exitoso!</AlertTitle>
                 <AlertDescription>
-                    La cuenta para <strong>{studentData.fullName}</strong> ha sido creada. El nombre de usuario es tu legajo: <strong>{studentData.universityId}</strong>.
+                    La cuenta para <strong>{studentDataForDisplay.fullName}</strong> ha sido creada. El nombre de usuario es tu legajo: <strong>{studentDataForDisplay.universityId}</strong>.
                      Ahora serás redirigido/a a tu perfil.
                  </AlertDescription>
              </Alert>
@@ -586,7 +661,15 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                      <br />
                      Por favor, revisa los datos e inténtalo de nuevo.
                  </AlertDescription>
-                  <Button type="button" variant="outline" size="sm" onClick={() => { setStep('initial'); setErrorMessage(null); form.reset(); }} className="mt-4">
+                  <Button type="button" variant="outline" size="sm" onClick={() => {
+                     // Clear all registration-related localStorage on full reset
+                     safeLocalStorageRemove('studentRegData');
+                     safeLocalStorageRemove('studentProfileData');
+                     safeLocalStorageRemove('studentVerificationCode');
+                     setStep('initial');
+                     setErrorMessage(null);
+                     form.reset();
+                   }} className="mt-4">
                     Volver al Inicio del Registro
                  </Button>
              </Alert>
