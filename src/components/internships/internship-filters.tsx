@@ -63,7 +63,8 @@ export function InternshipFilters({ careers, areas }: FilterProps) {
               <SelectValue placeholder="Todas las carreras" />
             </SelectTrigger>
             <SelectContent>
-              {/* Removed: <SelectItem value="">Todas las carreras</SelectItem> */}
+              {/* Add an explicit option for "all" if needed, but ensure it has a non-empty value */}
+              {/* <SelectItem value="all">Todas las carreras</SelectItem> */}
               {careers.map((career) => (
                 <SelectItem key={career.id} value={career.id}>
                   {career.name}
@@ -81,7 +82,8 @@ export function InternshipFilters({ careers, areas }: FilterProps) {
               <SelectValue placeholder="Todas las áreas" />
             </SelectTrigger>
             <SelectContent>
-               {/* Removed: <SelectItem value="">Todas las áreas</SelectItem> */}
+              {/* Add an explicit option for "all" if needed, but ensure it has a non-empty value */}
+               {/* <SelectItem value="all">Todas las áreas</SelectItem> */}
               {areas.map((area) => (
                 <SelectItem key={area.id} value={area.id}>
                   {area.name}
@@ -117,4 +119,3 @@ export function InternshipFilters({ careers, areas }: FilterProps) {
     </Card>
   );
 }
-
