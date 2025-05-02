@@ -286,7 +286,8 @@ export function CompanyRegistrationForm() {
              schemaForValidation = stepThreeSchema;
              break;
         case 'password':
-             fieldsToValidate = Object.keys(stepFourSchema.shape) as (keyof z.infer<typeof stepFourSchema>)[];
+             // Explicitly list keys for stepFourSchema because .refine() might alter .shape access
+             fieldsToValidate = ['password', 'confirmPassword'];
              handler = handlePasswordSubmit;
              schemaForValidation = stepFourSchema;
              break;
