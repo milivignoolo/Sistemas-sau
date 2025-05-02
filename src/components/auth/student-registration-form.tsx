@@ -178,7 +178,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       case 'verify': return stepTwoSchema;
       case 'profile': return stepThreeSchema;
       case 'password': return stepFourSchema;
-      default: return null; // Return null for steps without a form schema
+      default: return null; // Return null for steps without a form schema ('complete', 'error')
     }
   };
 
@@ -278,12 +278,12 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
     // If there's no schema for the current step, don't proceed with validation/submission
     if (!currentSchema) {
         console.log('No schema found for current step:', step);
+        // This case handles 'complete' or 'error' steps implicitly
         return;
     }
 
     // Use trigger to manually validate based on current schema's fields
-    // Ensure currentSchema.shape exists before accessing it
-    const fieldsToValidate = currentSchema.shape ? Object.keys(currentSchema.shape) as (keyof typeof values)[] : [];
+    const fieldsToValidate = Object.keys(currentSchema.shape) as (keyof typeof values)[];
     const isValid = await form.trigger(fieldsToValidate);
 
     if (!isValid) {
@@ -302,7 +302,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
     }
 
     // Parse validated values using the current schema
-    const validationResult = currentSchema.safeParse(form.getValues()); // Get current values again after trigger
+    // Use getValues() to ensure we have the latest form state after trigger
+    const validationResult = currentSchema.safeParse(form.getValues());
      if (!validationResult.success) {
         // This should theoretically not happen if trigger passed, but good safety check
         console.error("Schema parsing failed after trigger passed:", validationResult.error.flatten().fieldErrors);
@@ -332,7 +333,10 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
     // @ts-ignore - Dynamically updating resolver
     form.resolver = zodResolver(currentSchema ?? z.object({}));
     // Trigger validation after a short delay to ensure state is updated
-    setTimeout(() => form.trigger(), 50);
+    // Only trigger validation if there's a schema for the current step
+    if (currentSchema) {
+        setTimeout(() => form.trigger(), 50);
+    }
   }, [step, form]);
 
 
@@ -588,4 +592,3 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
     </Form>
   );
 }
-
