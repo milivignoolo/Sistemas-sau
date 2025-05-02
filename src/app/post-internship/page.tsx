@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -327,13 +328,15 @@ export default function PostInternshipPage() {
                                 <FormItem>
                                     <FormLabel>Año de Cursado (Mínimo)</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined} >
+                                        {/* Wrap Select with FormControl */}
                                         <FormControl>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Cualquier año" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="any">Cualquier año</SelectItem> {/* Use 'any' or another non-empty value */}
+                                            {/* Ensure a valid non-empty value, or adjust schema to allow empty strings */}
+                                            <SelectItem value="any">Cualquier año</SelectItem>
                                             {yearOptions.map((year) => (
                                                 <SelectItem key={year} value={year}>
                                                     {year === 'Graduado Reciente' ? year : `${year}° Año`}
