@@ -26,13 +26,13 @@ interface FilterProps {
 // Define the state structure for all filters
 export interface FiltersState {
     searchTerm: string;
-    selectedCareer: string;
-    selectedArea: string;
+    selectedCareer: string; // Will use 'all' for empty selection
+    selectedArea: string; // Will use 'all' for empty selection
     isRemote: boolean;
-    selectedYear: string;
-    selectedDuration: string;
-    selectedLanguage: string;
-    matchScoreLevel: MatchScoreLevel;
+    selectedYear: string; // Uses 'any'
+    selectedDuration: string; // Uses 'any'
+    selectedLanguage: string; // Uses 'any'
+    matchScoreLevel: MatchScoreLevel; // Uses 'all'
 }
 
 // Mock data for new filters (replace or fetch if needed)
@@ -42,11 +42,11 @@ const languageOptions = ['any', 'ingles', 'portugues', 'frances', 'aleman', 'ita
 
 export function InternshipFilters({ careers, areas, onFiltersChange, initialFilters }: FilterProps) {
 
-  // Initialize state with optional initialFilters or defaults
+  // Initialize state with optional initialFilters or defaults using 'all' for careers/areas
    const [filters, setFilters] = React.useState<FiltersState>(initialFilters || {
     searchTerm: '',
-    selectedCareer: '',
-    selectedArea: '',
+    selectedCareer: 'all', // Use 'all' instead of ''
+    selectedArea: 'all', // Use 'all' instead of ''
     isRemote: false,
     selectedYear: 'any',
     selectedDuration: 'any',
@@ -67,8 +67,8 @@ export function InternshipFilters({ careers, areas, onFiltersChange, initialFilt
   const handleResetFilters = () => {
     const defaultFilters = {
         searchTerm: '',
-        selectedCareer: '',
-        selectedArea: '',
+        selectedCareer: 'all', // Reset to 'all'
+        selectedArea: 'all', // Reset to 'all'
         isRemote: false,
         selectedYear: 'any',
         selectedDuration: 'any',
@@ -147,7 +147,8 @@ export function InternshipFilters({ careers, areas, onFiltersChange, initialFilt
               <SelectValue placeholder="Todas las carreras" />
             </SelectTrigger>
             <SelectContent>
-               <SelectItem value="">Todas las carreras</SelectItem> {/* Explicit "all" option */}
+               {/* Use 'all' instead of '' for the value */}
+               <SelectItem value="all">Todas las carreras</SelectItem>
               {careers.map((career) => (
                 <SelectItem key={career.id} value={career.id}>
                   {career.name}
@@ -182,7 +183,8 @@ export function InternshipFilters({ careers, areas, onFiltersChange, initialFilt
               <SelectValue placeholder="Todas las áreas" />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="">Todas las áreas</SelectItem> {/* Explicit "all" option */}
+                 {/* Use 'all' instead of '' for the value */}
+                <SelectItem value="all">Todas las áreas</SelectItem>
               {areas.map((area) => (
                 <SelectItem key={area.id} value={area.id}>
                   {area.name}

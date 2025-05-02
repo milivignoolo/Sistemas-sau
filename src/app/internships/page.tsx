@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -230,10 +231,10 @@ const getMatchScoreLevel = (score: number): MatchScoreLevel => {
 export default function InternshipsPage() {
   const [studentProfile, setStudentProfile] = React.useState<StudentProfile | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = React.useState(true);
-  const [filters, setFilters] = React.useState<FiltersState>({
+   const [filters, setFilters] = React.useState<FiltersState>({
     searchTerm: '',
-    selectedCareer: '',
-    selectedArea: '',
+    selectedCareer: 'all', // Default to 'all'
+    selectedArea: 'all', // Default to 'all'
     isRemote: false,
     selectedYear: 'any',
     selectedDuration: 'any',
@@ -296,13 +297,13 @@ export default function InternshipsPage() {
           return false;
         }
 
-        // Career Filter
-         if (filters.selectedCareer && internship.career !== filters.selectedCareer) {
+        // Career Filter - Use 'all' instead of ''
+         if (filters.selectedCareer !== 'all' && internship.career !== filters.selectedCareer) {
           return false;
         }
 
-        // Area Filter
-        if (filters.selectedArea && internship.area !== filters.selectedArea) {
+        // Area Filter - Use 'all' instead of ''
+        if (filters.selectedArea !== 'all' && internship.area !== filters.selectedArea) {
           return false;
         }
 
@@ -313,16 +314,20 @@ export default function InternshipsPage() {
 
         // Year Filter
         if (filters.selectedYear !== 'any' && internship.requiredYear) {
-            const requiredYearNum = parseInt(filters.selectedYear, 10);
-             // Show internships requiring this year or less
-             if (internship.requiredYear > requiredYearNum && filters.selectedYear !== 'Graduado Reciente') {
-                 return false;
-             }
-             if (filters.selectedYear === 'Graduado Reciente' && internship.requiredYear !== 99) { // Assuming 99 represents grad requirement
-                 // Adapt logic if 'Graduado Reciente' maps differently
-                 // return false;
-             }
+            // Handle "Graduado Reciente" - assuming it means year > 5 or a specific flag
+            if (filters.selectedYear === 'Graduado Reciente') {
+                // Example: Assuming grads are marked with year 6 or higher, or a specific flag
+                // This logic depends on how your internship data represents this
+                if (internship.requiredYear < 6) return false; // Adapt as needed
+            } else {
+                 const requiredYearNum = parseInt(filters.selectedYear, 10);
+                 // Show internships requiring this year or less
+                 if (internship.requiredYear > requiredYearNum) {
+                     return false;
+                 }
+            }
         }
+
 
          // Duration Filter (Simplified check)
          if (filters.selectedDuration !== 'any') {
@@ -392,9 +397,7 @@ export default function InternshipsPage() {
                     </Link>
                  </CardContent>
             </Card>
-             <div className="mt-10 text-gray-500">
-                 <p>You are a student, you can see the internships and apply here.</p>
-             </div>
+             {/* Removed the English text */}
         </div>
     );
   }
