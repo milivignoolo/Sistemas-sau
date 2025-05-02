@@ -211,6 +211,10 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  // Store sysacad data temporarily in component state instead of localStorage for pre-filling verify step
+  const [tempStudentData, setTempStudentData] = useState<SysacadStudentData | null>(null);
+  // Store profile data temporarily in component state
+  const [tempProfileData, setTempProfileData] = useState<z.infer<typeof stepThreeSchema> | null>(null);
 
 
   // Determine the current schema based on the step
@@ -226,7 +230,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
 
   const form = useForm<any>({
     resolver: zodResolver(getCurrentSchema()), // Initialize with the first step's schema
-    defaultValues: {
+    defaultValues: { // Always start with empty default values
       universityId: '',
       dni: '',
       verificationCode: '',
@@ -246,10 +250,11 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
   const handleStepOneSubmit = async (values: z.infer<typeof stepOneSchema>) => {
     setIsLoading(true);
     setErrorMessage(null);
+    setHasAttemptedSubmit(true); // Mark attempt for this step
     try {
       const data = await fetchSysacadData(values.universityId, values.dni);
-      // Store validated initial data in localStorage
-      safeLocalStorageSet('studentRegData', data);
+      // Store data temporarily in component state
+      setTempStudentData(data);
       await sendVerificationEmail(data.email);
       toast({ title: 'Verifica tu Correo', description: `Se envió un código de verificación a ${data.email}. (Mock: 123456)` });
       setStep('verify');
@@ -266,8 +271,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
   };
 
   const handleStepTwoSubmit = async (values: z.infer<typeof stepTwoSchema>) => {
-     const studentData = safeLocalStorageGet('studentRegData');
-     if (!studentData) {
+     // const studentData = safeLocalStorageGet('studentRegData'); // Use temp state instead
+     if (!tempStudentData) {
         console.error("Verification step reached without initial data.");
         setErrorMessage("Error interno: Faltan datos de Sysacad. Por favor, reinicia el registro.");
         setStep('error');
@@ -275,8 +280,9 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
      }
     setIsLoading(true);
     setErrorMessage(null);
+    setHasAttemptedSubmit(true); // Mark attempt
     try {
-      await verifyCode(studentData.email, values.verificationCode);
+      await verifyCode(tempStudentData.email, values.verificationCode);
       toast({ title: 'Correo Verificado', description: 'Tu identidad ha sido verificada.', variant: 'default' });
       setStep('profile');
       setHasAttemptedSubmit(false); // Reset submit attempt flag
@@ -289,17 +295,17 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
   };
 
   const handleStepThreeSubmit = async (values: z.infer<typeof stepThreeSchema>) => {
-    // Store profile data in localStorage
-    safeLocalStorageSet('studentProfileData', values);
+    // Store profile data temporarily
+    setTempProfileData(values);
     setStep('password');
     setHasAttemptedSubmit(false); // Reset submit attempt flag
   };
 
   const handleStepFourSubmit = async (values: z.infer<typeof stepFourSchema>) => {
-     const studentData = safeLocalStorageGet('studentRegData');
-     const profileData = safeLocalStorageGet('studentProfileData');
+     // const studentData = safeLocalStorageGet('studentRegData'); // Use temp state
+     // const profileData = safeLocalStorageGet('studentProfileData'); // Use temp state
 
-     if (!studentData || !profileData) {
+     if (!tempStudentData || !tempProfileData) {
         console.error("Password step reached without initial or profile data.");
         setErrorMessage("Error interno: Faltan datos para crear la cuenta. Por favor, reinicia el registro.");
         setStep('error');
@@ -307,20 +313,21 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
      }
      setIsLoading(true);
      setErrorMessage(null);
+     setHasAttemptedSubmit(true); // Mark attempt
      try {
         const finalUserData = {
-            ...studentData,
-            profile: profileData,
-            password: values.password, // In a real app, hash the password server-side
-            username: studentData.universityId, // Username is the university ID
+            ...tempStudentData, // Data from Sysacad (step 1)
+            profile: tempProfileData, // Data from profile form (step 3)
+            password: values.password, // Password from current step (step 4) - HASH SERVER-SIDE
+            username: tempStudentData.universityId, // Username is the university ID
         };
-        await createStudentAccount(finalUserData);
-        toast({ title: '¡Registro Completo!', description: `Bienvenido/a, ${studentData.fullName}. Ya puedes iniciar sesión.` });
+        await createStudentAccount(finalUserData); // This saves to localStorage['userProfile']
+        toast({ title: '¡Registro Completo!', description: `Bienvenido/a, ${tempStudentData.fullName}. Ya puedes iniciar sesión.` });
         setStep('complete');
-        onRegisterSuccess();
+        onRegisterSuccess(); // Callback to parent to handle redirect
      } catch (error: any) {
         setErrorMessage(error.message || 'No se pudo crear la cuenta.');
-        setStep('error')
+        setStep('error');
      } finally {
         setIsLoading(false);
      }
@@ -334,42 +341,50 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
         return;
     }
 
-    setHasAttemptedSubmit(true); // Mark that a submit attempt has been made for the current step
+    // Mark that a submit attempt has been made for the current step
+    // This is now handled within each step handler to control error message display precisely
+    // setHasAttemptedSubmit(true);
 
     const currentSchema = getCurrentSchema();
 
     // Check if the current schema is valid before proceeding
-    if (!currentSchema || !currentSchema.shape || Object.keys(currentSchema.shape).length === 0) {
+    if (!currentSchema || !currentSchema.shape || Object.keys(currentSchema.shape || {}).length === 0) {
         console.error('Invalid or empty schema for current step:', step);
-        if (step === 'initial' || step === 'verify' || step === 'profile' || step === 'password') {
+        if (['initial', 'verify', 'profile', 'password'].includes(step)) {
              toast({
                 title: 'Error Interno',
                 description: 'No se pudo procesar este paso.',
                 variant: 'destructive',
              });
-        } else {
-            console.warn(`onSubmit called for step '${step}' with no form schema.`);
         }
         return;
     }
 
     // Use zodResolver's parse to validate against the current schema
-    const validationResult = currentSchema.safeParse(form.getValues());
+    // Trigger validation manually to check if the current form state is valid against the schema
+    const fieldsToValidate = Object.keys(currentSchema.shape) as (keyof typeof values)[];
+    const isValid = await form.trigger(fieldsToValidate); // Validate only the fields for the current step
 
-     if (!validationResult.success) {
-        console.error("Validation failed:", validationResult.error.flatten().fieldErrors);
+
+     if (!isValid) {
+        console.error("Validation failed for step:", step, form.formState.errors);
         // Errors will be shown by FormMessage components due to resolver
-        const firstErrorMessage = Object.values(validationResult.error.flatten().fieldErrors)[0]?.[0] || 'Por favor, corrige los errores marcados.';
+        const firstErrorField = Object.keys(currentSchema.shape).find(field => form.formState.errors[field as keyof typeof values]);
+        const firstErrorMessage = firstErrorField ? form.formState.errors[firstErrorField as keyof typeof values]?.message : 'Por favor, corrige los errores marcados.';
         toast({
             title: 'Error de Validación',
-            description: firstErrorMessage,
+            description: typeof firstErrorMessage === 'string' ? firstErrorMessage : 'Error desconocido.',
             variant: 'destructive',
         });
+        setHasAttemptedSubmit(true); // Set attempt flag only when validation fails on submit
         return; // Stop if validation fails
     }
 
     // If validation passes, proceed with the appropriate handler
-    const validatedValues = validationResult.data;
+    const validatedValues = currentSchema.parse(form.getValues()); // Parse the valid values
+
+    // Reset attempt flag before calling handler, handler will set it if needed on error
+    // setHasAttemptedSubmit(false); // Let handlers manage this
 
     switch (step) {
       case 'initial': await handleStepOneSubmit(validatedValues as z.infer<typeof stepOneSchema>); break;
@@ -380,60 +395,44 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
     }
   };
 
-   // Update resolver when step changes and load data from localStorage
+   // Update resolver when step changes
    useEffect(() => {
     const currentSchema = getCurrentSchema();
     // @ts-ignore - Dynamically updating resolver
     form.resolver = zodResolver(currentSchema);
 
-    // Load data from localStorage for the current step if available
-    const studentRegData = safeLocalStorageGet('studentRegData');
-    const studentProfileData = safeLocalStorageGet('studentProfileData');
-
-    // Reset form with loaded data or default values
+    // Reset form fields relevant to the *next* step, keep others for potential back navigation?
+    // NO - Always reset to default empty state when step changes
     form.reset({
-      // Step 1 defaults (always clear these unless loading a specific unfinished step 1)
       universityId: '',
       dni: '',
-      // Step 2 default
       verificationCode: '',
-      // Step 3 defaults (load from localStorage if available)
-      availability: studentProfileData?.availability || '',
-      technicalSkills: studentProfileData?.technicalSkills || {},
-      softSkills: studentProfileData?.softSkills || {},
-      previousExperience: studentProfileData?.previousExperience || '',
-      languages: studentProfileData?.languages || {},
-      // Step 4 defaults
+      availability: '',
+      technicalSkills: {},
+      softSkills: {},
+      previousExperience: '',
+      languages: {},
       password: '',
       confirmPassword: '',
     });
 
+
     setHasAttemptedSubmit(false); // Reset submit attempt flag when step changes
     setErrorMessage(null); // Clear global error message when step changes
 
-
-    // Trigger validation *only if* a submit attempt was made for this step previously (useful for re-renders)
-    // However, with mode: 'onSubmit', initial validation happens on submit, so triggering here might be redundant
-    // if (hasAttemptedSubmit && currentSchema && Object.keys(currentSchema.shape || {}).length > 0) {
-    //     setTimeout(() => form.trigger(), 50);
-    // }
   }, [step, form]);
 
 
-  // Helper to get student data for display, avoiding direct state access
-  const getDisplayStudentData = (): SysacadStudentData | null => {
-      return safeLocalStorageGet('studentRegData');
-  };
-
-  const studentDataForDisplay = getDisplayStudentData(); // Get data for display
+  // Helper to get student data for display
+  const studentDataForDisplay = tempStudentData; // Use component state
 
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
-        {/* Show global error message only if it exists */}
-        {errorMessage && (
+        {/* Show global error message only if it exists AND an attempt was made */}
+        {hasAttemptedSubmit && errorMessage && (
           <Alert variant="destructive">
              <Info className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
@@ -441,10 +440,10 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
              {/* Add reset button only in the final error state */}
              {step === 'error' && (
                   <Button type="button" variant="outline" size="sm" onClick={() => {
-                     // Clear all registration-related localStorage on full reset
-                     safeLocalStorageRemove('studentRegData');
-                     safeLocalStorageRemove('studentProfileData');
-                     safeLocalStorageRemove('studentVerificationCode');
+                     // Clear temporary state on full reset
+                     setTempStudentData(null);
+                     setTempProfileData(null);
+                     safeLocalStorageRemove('studentVerificationCode'); // Clear any lingering code
                      setStep('initial');
                      setErrorMessage(null);
                      form.reset();
@@ -468,8 +467,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                   <FormControl>
                     <Input placeholder="12345" {...field} disabled={isLoading} />
                   </FormControl>
-                  {/* FormMessage will only show after submit attempt due to mode: 'onSubmit' */}
-                  <FormMessage />
+                  {/* Show message only if there was an attempt and an error exists */}
+                   {hasAttemptedSubmit && form.formState.errors.universityId && <FormMessage />}
                 </FormItem>
               )}
             />
@@ -483,8 +482,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                     <Input placeholder="30123456" {...field} disabled={isLoading} />
                   </FormControl>
                    <FormDescription>Ingresa tu DNI sin puntos.</FormDescription>
-                   {/* FormMessage will only show after submit attempt */}
-                  <FormMessage />
+                    {/* Show message only if there was an attempt and an error exists */}
+                   {hasAttemptedSubmit && form.formState.errors.dni && <FormMessage />}
                 </FormItem>
               )}
             />
@@ -514,8 +513,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                   <FormControl>
                     <Input placeholder="******" {...field} disabled={isLoading} maxLength={6} />
                   </FormControl>
-                  {/* FormMessage will only show after submit attempt */}
-                  <FormMessage />
+                  {/* Show message only if there was an attempt and an error exists */}
+                   {hasAttemptedSubmit && form.formState.errors.verificationCode && <FormMessage />}
                 </FormItem>
               )}
             />
@@ -554,7 +553,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                     <Input placeholder="Ej: Lunes a Viernes, 4hs diarias por la tarde" {...field} />
                   </FormControl>
                    {/* No message needed for optional field unless it has specific validation */}
-                  <FormMessage />
+                  {hasAttemptedSubmit && form.formState.errors.availability && <FormMessage />}
                 </FormItem>
               )}
             />
@@ -599,7 +598,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                     <Textarea placeholder="Describe brevemente proyectos personales, trabajos anteriores o voluntariados relevantes." {...field} />
                   </FormControl>
                    {/* No message needed for optional field */}
-                  <FormMessage />
+                    {hasAttemptedSubmit && form.formState.errors.previousExperience && <FormMessage />}
                 </FormItem>
               )}
             />
@@ -614,7 +613,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
         )}
 
         {/* Step 4: Set Password */}
-        {step === 'password' && studentDataForDisplay && ( // Use display data
+        {step === 'password' && studentDataForDisplay && ( // Use temp state
           <>
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Crear Contraseña</h3>
              <Alert variant="default" className="mb-4">
@@ -633,8 +632,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                   <FormControl>
                     <Input type="password" placeholder="********" {...field} disabled={isLoading} />
                   </FormControl>
-                  {/* FormMessage will only show after submit attempt */}
-                  <FormMessage />
+                   {/* Show message only if there was an attempt and an error exists */}
+                  {hasAttemptedSubmit && form.formState.errors.password && <FormMessage />}
                 </FormItem>
               )}
             />
@@ -647,8 +646,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                   <FormControl>
                     <Input type="password" placeholder="********" {...field} disabled={isLoading} />
                   </FormControl>
-                  {/* FormMessage will only show after submit attempt */}
-                  <FormMessage />
+                   {/* Show message only if there was an attempt and an error exists */}
+                  {hasAttemptedSubmit && form.formState.errors.confirmPassword && <FormMessage />}
                 </FormItem>
               )}
             />
@@ -663,7 +662,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
         )}
 
          {/* Step 5: Complete */}
-         {step === 'complete' && studentDataForDisplay && ( // Use display data
+         {step === 'complete' && studentDataForDisplay && ( // Use temp state
              <Alert variant="success">
                  <CheckSquare className="h-4 w-4"/>
                 <AlertTitle>¡Registro Exitoso!</AlertTitle>
