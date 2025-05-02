@@ -1,7 +1,7 @@
 
 
 'use client';
-
+import { redirect } from 'next/navigation';
 import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -33,12 +33,11 @@ import Link from 'next/link'; // Import Link for redirect button
 // In a real app, you'd get this from a session, context, or server-side props
 const getCurrentUserRole = (): 'company' | 'student' | null => {
     // Simulate a logged-in company for demonstration
-    // Replace with actual logic to check user session/token
-    return 'company';
+        // Replace with actual logic to check user session/token
+        return 'company';
     // return 'student'; // Simulate a student
     // return null; // Simulate not logged in
 };
-
 
 // --- Predefined Lists (Similar to student registration) ---
 const PREDEFINED_TECHNICAL_SKILLS = [
@@ -154,6 +153,7 @@ export default function PostInternshipPage() {
   const { toast } = useToast();
   const userRole = getCurrentUserRole(); // Check user role
 
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -192,12 +192,12 @@ export default function PostInternshipPage() {
     // Simulate API call to backend to save data with 'pending' status
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
-    toast({
-      title: 'Pasantía Enviada para Verificación',
-      description: 'La oferta de pasantía ha sido enviada y está pendiente de revisión por la SAU. Recibirás una notificación cuando sea aprobada.',
-      variant: 'default' // Use default variant for pending status (less alarming than 'info' maybe)
-    });
-
+            toast({
+                title: 'Pasantía Enviada para Verificación',
+                description: 'La oferta de pasantía ha sido enviada y está pendiente de revisión por la SAU. Recibirás una notificación cuando sea aprobada.',
+                variant: 'default' // Use default variant for pending status (less alarming than 'info' maybe)
+            });
+        
     // Optionally reset the form or redirect
     form.reset();
     // router.push('/company/dashboard'); // Example redirect
@@ -206,24 +206,27 @@ export default function PostInternshipPage() {
   // --- Authorization Check ---
   if (userRole !== 'company') {
     return (
-      <div className="flex flex-col items-center justify-center h-full mt-10 text-center">
-         <Card className="w-full max-w-md p-8">
-             <CardHeader className="items-center">
-                 <Lock size={48} className="text-destructive mb-4"/>
-                 <CardTitle className="text-2xl">Acceso Restringido</CardTitle>
-                 <CardDescription>
-                     Debes iniciar sesión como empresa para publicar una pasantía.
-                 </CardDescription>
-             </CardHeader>
-            <CardContent>
-                 <Link href="/login" passHref>
-                    <Button className="w-full">
-                        Ir a Iniciar Sesión
-                    </Button>
-                 </Link>
-            </CardContent>
-        </Card>
-      </div>
+        <div className="flex flex-col items-center justify-center h-full mt-10 text-center">
+            <Card className="w-full max-w-md p-8">
+                <CardHeader className="items-center">
+                    <Lock size={48} className="text-destructive mb-4" />
+                    <CardTitle className="text-2xl">Acceso Restringido</CardTitle>
+                    <CardDescription>
+                        Debes iniciar sesión como empresa para publicar una pasantía.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Link href="/login" passHref>
+                        <Button className="w-full">
+                            Ir a Iniciar Sesión
+                        </Button>
+                    </Link>
+                </CardContent>
+            </Card>
+            <div className="mt-10 text-gray-500">
+                <p>You are a Company, you can publish a new internship here.</p>
+                </div>
+        </div>
     );
   }
   // --- End Authorization Check ---

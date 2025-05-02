@@ -22,6 +22,7 @@ import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+// Removed useRouter import as navigation is handled by the parent via onRegisterSuccess
 import { Loader2, MailCheck, Info, UserCheck, KeyRound, CheckSquare, Languages, Brain } from 'lucide-react';
 import { SkillCheckboxGroup } from './skill-checkbox-group'; // Corrected import path
 
@@ -155,9 +156,14 @@ interface SysacadStudentData {
     email: string;
 }
 
+// Define props for the component, including the callback
+interface StudentRegistrationFormProps {
+  onRegisterSuccess: () => void;
+}
 
-export function StudentRegistrationForm() {
+export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrationFormProps) {
   const { toast } = useToast();
+  // Removed router instance
   const [step, setStep] = useState<Step>('initial');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -190,7 +196,8 @@ export function StudentRegistrationForm() {
       password: '',
       confirmPassword: '',
     },
-    mode: 'onChange',
+    mode: 'onBlur', // Changed mode to onBlur for potentially better performance
+    reValidateMode: 'onChange',
   });
 
    // Define submit handlers for each step (Keep existing handlers)
@@ -205,6 +212,11 @@ export function StudentRegistrationForm() {
       setStep('verify');
     } catch (error: any) {
       setErrorMessage(error.message || 'Ocurrió un error.');
+      // Set error on relevant fields if possible
+       if (error.message.includes('Sysacad')) {
+           form.setError("universityId", { type: "manual", message: error.message });
+           form.setError("dni", { type: "manual", message: error.message });
+        }
     } finally {
       setIsLoading(false);
     }
@@ -244,9 +256,11 @@ export function StudentRegistrationForm() {
         };
         await createStudentAccount(finalUserData);
         toast({ title: '¡Registro Completo!', description: `Bienvenido/a, ${studentData.fullName}. Ya puedes iniciar sesión.` });
-        setStep('complete');
+        setStep('complete'); // Move to complete state
+        onRegisterSuccess(); // Call the success callback
      } catch (error: any) {
         setErrorMessage(error.message || 'No se pudo crear la cuenta.');
+        setStep('error')
      } finally {
         setIsLoading(false);
      }
@@ -255,14 +269,40 @@ export function StudentRegistrationForm() {
   // Main submit handler
   const onSubmit = async (values: any) => {
     const currentSchema = getCurrentSchema();
-    const validationResult = currentSchema.safeParse(values);
+    // Use trigger to manually validate based on current schema's fields
+    const fieldsToValidate = Object.keys(currentSchema.shape) as (keyof typeof values)[];
+    const isValid = await form.trigger(fieldsToValidate);
 
-    if (!validationResult.success) {
-        console.error("Validation failed:", validationResult.error.flatten().fieldErrors);
+    if (!isValid) {
+        console.error("Validation failed:", form.formState.errors);
+         // Find the first error message to display
+         const errors = form.formState.errors;
+         const firstErrorField = fieldsToValidate?.find(field => errors[field]);
+         const firstErrorMessage = firstErrorField ? errors[firstErrorField]?.message : 'Por favor, corrige los errores marcados.';
+
+         toast({
+             title: 'Error de Validación',
+             description: typeof firstErrorMessage === 'string' ? firstErrorMessage : 'Por favor, revisa el formulario.',
+             variant: 'destructive',
+         });
+        return;
+    }
+
+    // Parse validated values using the current schema
+    const validationResult = currentSchema.safeParse(form.getValues()); // Get current values again after trigger
+     if (!validationResult.success) {
+        // This should theoretically not happen if trigger passed, but good safety check
+        console.error("Schema parsing failed after trigger passed:", validationResult.error.flatten().fieldErrors);
+        toast({
+             title: 'Error de Datos',
+             description: 'Hubo un problema con los datos ingresados.',
+             variant: 'destructive',
+         });
         return;
     }
 
     const validatedValues = validationResult.data;
+
 
     switch (step) {
       case 'initial': await handleStepOneSubmit(validatedValues as z.infer<typeof stepOneSchema>); break;
@@ -275,9 +315,10 @@ export function StudentRegistrationForm() {
 
   return (
     <Form {...form}>
+      {/* Pass the onSubmit handler directly */}
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
-        {errorMessage && (
+        {errorMessage && step !== 'error' && ( // Show error inline unless in final error step
           <Alert variant="destructive">
              <Info className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
@@ -288,7 +329,6 @@ export function StudentRegistrationForm() {
         {/* Step 1: Initial Input */}
         {step === 'initial' && (
           <>
-            {/* ... (Keep Legajo and DNI fields) ... */}
              <FormField
               control={form.control}
               name="universityId"
@@ -326,12 +366,11 @@ export function StudentRegistrationForm() {
         {/* Step 2: Verify Email */}
         {step === 'verify' && studentData && (
           <>
-           {/* ... (Keep Verification Code field and buttons) ... */}
             <Alert variant="default" className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
               <Info className="h-4 w-4 text-blue-700 dark:text-blue-300" />
               <AlertTitle className="text-blue-800 dark:text-blue-200">Verificación Requerida</AlertTitle>
               <AlertDescription className="text-blue-700 dark:text-blue-300">
-                Se ha enviado un código de verificación a tu correo electrónico institucional: <strong>{studentData.email}</strong>. Por favor, ingrésalo a continuación.
+                Se ha enviado un código de verificación a tu correo electrónico institucional: <strong>{studentData.email}</strong>. Por favor, ingrésalo a continuación. (Mock: Usa 123456)
               </AlertDescription>
             </Alert>
             <FormField
@@ -341,19 +380,24 @@ export function StudentRegistrationForm() {
                 <FormItem>
                   <FormLabel>Código de Verificación</FormLabel>
                   <FormControl>
-                    <Input placeholder="123456" {...field} disabled={isLoading} maxLength={6} />
+                    <Input placeholder="******" {...field} disabled={isLoading} maxLength={6} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {/* Use type="submit" for the button within the form */}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MailCheck className="mr-2 h-4 w-4"/>}
               Verificar Código
             </Button>
-             <Button variant="link" size="sm" onClick={() => setStep('initial')} disabled={isLoading} className="w-full mt-2 text-muted-foreground">
+             <Button type="button" variant="link" size="sm" onClick={() => setStep('initial')} disabled={isLoading} className="w-full mt-2 text-muted-foreground">
                 Volver e ingresar Legajo/DNI
             </Button>
+             {/* TODO: Add resend code functionality */}
+             {/* <Button variant="link" size="sm" disabled={isLoading} className="w-full mt-1 text-primary">
+                Reenviar Código
+             </Button> */}
           </>
         )}
 
@@ -362,7 +406,6 @@ export function StudentRegistrationForm() {
           <>
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Completa tu Perfil</h3>
              <Alert variant="default" className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800 mb-4">
-                 {/* ... (Keep Sysacad Data Alert) ... */}
                  <UserCheck className="h-4 w-4 text-green-700 dark:text-green-300" />
                 <AlertTitle className="text-green-800 dark:text-green-200">Datos de Sysacad</AlertTitle>
                 <AlertDescription className="text-green-700 dark:text-green-300 text-xs space-y-1">
@@ -432,10 +475,11 @@ export function StudentRegistrationForm() {
               )}
             />
 
+            {/* Use type="submit" for the button within the form */}
             <Button type="submit" className="w-full">
               Continuar a Crear Contraseña
             </Button>
-             <Button variant="link" size="sm" onClick={() => setStep('verify')} className="w-full mt-2 text-muted-foreground">
+             <Button type="button" variant="link" size="sm" onClick={() => setStep('verify')} className="w-full mt-2 text-muted-foreground">
                 Volver a Verificar Correo
             </Button>
           </>
@@ -444,7 +488,6 @@ export function StudentRegistrationForm() {
         {/* Step 4: Set Password */}
         {step === 'password' && studentData && (
           <>
-            {/* ... (Keep Password fields and buttons) ... */}
             <h3 className="text-lg font-semibold border-b pb-2 mb-4">Crear Contraseña</h3>
              <Alert variant="default" className="mb-4">
               <KeyRound className="h-4 w-4" />
@@ -479,11 +522,12 @@ export function StudentRegistrationForm() {
                 </FormItem>
               )}
             />
+            {/* Use type="submit" for the button within the form */}
             <Button type="submit" className="w-full" disabled={isLoading}>
-               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}
               Completar Registro
             </Button>
-            <Button variant="link" size="sm" onClick={() => setStep('profile')} disabled={isLoading} className="w-full mt-2 text-muted-foreground">
+            <Button type="button" variant="link" size="sm" onClick={() => setStep('profile')} disabled={isLoading} className="w-full mt-2 text-muted-foreground">
                 Volver a Editar Perfil
             </Button>
           </>
@@ -491,16 +535,32 @@ export function StudentRegistrationForm() {
 
          {/* Step 5: Complete */}
          {step === 'complete' && studentData && (
-            <Alert variant="default" className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
-                 {/* ... (Keep Success Alert) ... */}
-                 <MailCheck className="h-4 w-4 text-green-700 dark:text-green-300"/>
-                <AlertTitle className="text-green-800 dark:text-green-200">¡Registro Exitoso!</AlertTitle>
-                <AlertDescription className="text-green-700 dark:text-green-300">
-                    Tu cuenta ha sido creada. Tu nombre de usuario es <strong>{studentData.universityId}</strong>.
-                     Ya puedes <Button variant="link" className="p-0 h-auto text-green-700 dark:text-green-300" onClick={() => {/* TODO: Implement login redirect */}}>iniciar sesión</Button>.
+             <Alert variant="success">
+                 <CheckSquare className="h-4 w-4"/>
+                <AlertTitle>¡Registro Exitoso!</AlertTitle>
+                <AlertDescription>
+                    La cuenta para <strong>{studentData.fullName}</strong> ha sido creada. El nombre de usuario es tu legajo: <strong>{studentData.universityId}</strong>.
+                     Ahora serás redirigido/a a tu perfil.
                  </AlertDescription>
-            </Alert>
+             </Alert>
          )}
+
+         {/* Final Error State */}
+         {step === 'error' && errorMessage && (
+              <Alert variant="destructive">
+                 <Info className="h-4 w-4" />
+                 <AlertTitle>Error en el Registro</AlertTitle>
+                 <AlertDescription>
+                     {errorMessage}
+                     <br />
+                     Por favor, revisa los datos e inténtalo de nuevo.
+                 </AlertDescription>
+                  <Button type="button" variant="outline" size="sm" onClick={() => { setStep('initial'); setErrorMessage(null); form.reset(); }} className="mt-4">
+                    Volver al Inicio del Registro
+                 </Button>
+             </Alert>
+         )}
+
       </form>
     </Form>
   );

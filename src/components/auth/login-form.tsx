@@ -21,32 +21,37 @@ import { useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, LogIn, Info } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 
 // --- Mock Authentication Function ---
 async function authenticateUser(username: string, password: string) {
   console.log(`Attempting to authenticate user: ${username} with password: ${password}`);
   await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-
-  // Mock credentials (replace with actual backend verification)
-  // Ensure these match the credentials used during mock registration
-  const validStudent = { username: '12345', password: 'password123' }; // From student registration mock
-  const validCompany = { username: '30-12345678-9', password: 'password123' }; // From company registration mock
-
+  
   let isAuthenticated = false;
   let userType: 'student' | 'company' | 'unknown' = 'unknown';
+  
+  // Determine if the username is a student ID or a company CUIT based on length.
+  const isStudentId = /^\d{1,6}$/.test(username); // 1-6 digits
+  const isCompanyCuit = /^\d{11}$/.test(username); // 11 digits
+  
+    // Mock credentials (replace with actual backend verification)
+  // Ensure these match the credentials used during mock registration
+  const validStudent = { username: '12345', password: 'password123' }; // From student registration mock
+  const validCompany = { username: '12345678901', password: 'password123' }; // From company registration mock
 
-  if (username === validStudent.username && password === validStudent.password) {
+  if (isStudentId && username === validStudent.username && password === validStudent.password) {
     isAuthenticated = true;
     userType = 'student';
-  } else if (username === validCompany.username && password === validCompany.password) {
+  } else if (isCompanyCuit && username === validCompany.username && password === validCompany.password) {
     isAuthenticated = true;
     userType = 'company';
   }
 
   if (isAuthenticated) {
     console.log(`Authentication successful for user: ${username}, Type: ${userType}`);
-    return { success: true, userType: userType, username: username };
+        return { success: true, userType: userType, username: username };
   } else {
     console.error(`Authentication failed for user: ${username}. Provided password: ${password}. Expected student pass: ${validStudent.password}, Expected company pass: ${validCompany.password}`);
     throw new Error('Usuario o contraseña incorrectos.');
@@ -54,7 +59,15 @@ async function authenticateUser(username: string, password: string) {
 }
 
 // --- Zod Schema ---
+const usernameSchema = z.string().refine(
+  (val) => /^\d{1,6}$/.test(val) || /^\d{11}$/.test(val),
+  {
+    message: "El legajo debe tener entre 1 y 6 dígitos, o el CUIT debe tener 11 dígitos.",
+  }
+);
+
 const formSchema = z.object({
+  
   username: z.string().min(1, { message: 'El nombre de usuario (Legajo o CUIT) es requerido.' }),
   password: z.string().min(1, { message: 'La contraseña es requerida.' }),
 });
@@ -64,6 +77,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loginSuccess, setLoginSuccess] = useState(false);
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -87,8 +101,11 @@ export function LoginForm() {
           // Removed success variant to use default style
         });
         setLoginSuccess(true);
-        // TODO: Redirect to appropriate dashboard based on userType
-        // e.g., router.push(result.userType === 'student' ? '/student/dashboard' : '/company/dashboard');
+        if (result.userType === 'student') {
+          router.push('/student/profile');
+        } else if (result.userType === 'company') {
+          router.push('/company/profile');
+        }
         // form.reset(); // Clear form on success - optional, might be better to leave it for viewing success message
       }
       // No explicit else needed because authenticateUser throws on failure

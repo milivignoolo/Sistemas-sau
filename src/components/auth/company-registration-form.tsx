@@ -23,13 +23,15 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, MailCheck, Info, Building, KeyRound, Fingerprint, Link as LinkIcon, Briefcase, User, Home, Globe, Share2, CheckSquare } from 'lucide-react'; // Added CheckSquare
 import { Separator } from '@/components/ui/separator'; // Import Separator
 
+// Removed useRouter import as navigation is handled by the parent via onRegisterSuccess
 
 // --- Mock Verification Functions ---
 async function verifyArcaApi(cuit: string) {
   console.log(`Verifying CUIT ${cuit} with mock ARCA API...`);
   await new Promise(resolve => setTimeout(resolve, 1500));
   // Simulate success for a specific CUIT, failure otherwise
-  if (cuit === '30-12345678-9') {
+    const normalizedCuit = cuit.replace(/-/g, ''); // Remove hyphens for comparison
+    if (normalizedCuit === '30123456789') {
     console.log('ARCA Verification Successful for CUIT:', cuit);
     return { success: true, companyNameFromApi: 'Tecno Soluciones S.A. (Verified)' };
   } else {
@@ -49,13 +51,13 @@ async function sendCompanyVerificationEmail(email: string) {
 async function verifyCompanyCode(email: string, code: string) {
   console.log(`Verifying company code ${code} for email: ${email}`);
   await new Promise(resolve => setTimeout(resolve, 1000));
-  // Simulate success for *any* 6-digit code for easier testing
-  if (/^\d{6}$/.test(code)) { // Check if it's 6 digits
-    console.log(`Company code ${code} verified successfully for ${email} (Mock - Accepts any 6 digits)`);
+  // Simulate success for a specific code
+    if (code === '654321') { // Check against the mock code
+    console.log(`Company code ${code} verified successfully for ${email} (Mock - Specific code)`);
     return true;
   } else {
-    console.error(`Incorrect or invalid format company code ${code} for ${email}`);
-    throw new Error('Código de verificación inválido (debe tener 6 dígitos).');
+    console.error(`Incorrect or invalid company code ${code} for ${email}`);
+    throw new Error('Código de verificación inválido.');
   }
 }
 
@@ -111,7 +113,13 @@ type CompanyFormData = z.infer<typeof stepOneSchema> &
                        Partial<z.infer<typeof stepThreeSchema>> &
                        Partial<z.infer<typeof stepFourSchema>>;
 
-export function CompanyRegistrationForm() {
+// Define props for the component, including the callback
+interface CompanyRegistrationFormProps {
+  onRegisterSuccess: () => void;
+}
+
+export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrationFormProps) {
+  // Removed router instance
   const { toast } = useToast();
   const [step, setStep] = useState<Step>('initial');
   const [isLoading, setIsLoading] = useState(false);
@@ -169,7 +177,7 @@ export function CompanyRegistrationForm() {
              keepErrors: false, // Clear previous step's errors
              keepDefaultValues: false, // Don't revert to initial default values
              keepIsSubmitted: false,
-             keepTouched: false,
+             keepTouched: true, // Keep touched state for fields
              keepIsValid: false,
         });
         // Explicitly create a new resolver instance based on the new step
@@ -177,7 +185,8 @@ export function CompanyRegistrationForm() {
         // @ts-ignore - Dynamically updating resolver
         form.resolver = newResolver;
         // Trigger validation after a short delay to ensure state is updated
-        // setTimeout(() => form.trigger(), 50); // Optional: trigger validation immediately for the new step
+        // Use a small timeout to ensure state updates before triggering validation
+        setTimeout(() => form.trigger(), 50);
     }, [step, form]); // Dependencies: step and form instance
 
 
@@ -195,7 +204,7 @@ export function CompanyRegistrationForm() {
          toast({ title: 'Verificación ARCA Exitosa', description: `Empresa "${arcaResult.companyNameFromApi}" encontrada.` });
         // Now trigger email verification
         await sendCompanyVerificationEmail(values.contactEmail);
-        toast({ title: 'Verifica tu Correo', description: `Se envió un código de verificación a ${values.contactEmail}.` });
+        toast({ title: 'Verifica tu Correo', description: `Se envió un código de verificación a ${values.contactEmail}. (Mock: Usa 654321)` });
         setStep('verifyEmail');
       }
       // Removed the 'else' block because verifyArcaApi throws an error on failure
@@ -205,6 +214,9 @@ export function CompanyRegistrationForm() {
       // If ARCA failed specifically, set error on CUIT field
       if (error.message.includes('ARCA')) {
           form.setError("cuit", { type: "manual", message: error.message });
+      } else {
+          // If email send fails (or other general error), show generic message
+          setErrorMessage("Error al verificar la empresa o enviar el correo.");
       }
       setStep('initial'); // Go back to initial step on error
     } finally {
@@ -212,7 +224,7 @@ export function CompanyRegistrationForm() {
     }
   };
 
-  const handleEmailVerifySubmit = async (values: z.infer<typeof stepThreeSchema>) => {
+  const handleEmailVerifySubmit = async (values: { verificationCode: string }) => {
     if (!validatedInitialData) {
         console.error("Email verification step reached without initial data.");
         setErrorMessage("Error interno: Faltan datos iniciales. Por favor, reinicia el registro.");
@@ -246,18 +258,21 @@ export function CompanyRegistrationForm() {
     setIsLoading(true);
     setErrorMessage(null);
 
+    // Remove hyphens from CUIT for username
+    const usernameCuit = validatedInitialData.cuit.replace(/-/g, '');
+
     const finalCompanyData = {
         ...validatedInitialData,
         password: values.password, // Add password
-        username: validatedInitialData.cuit, // Set username as CUIT
+        username: usernameCuit, // Set username as CUIT (without hyphens)
     };
 
     try {
         await createCompanyAccount(finalCompanyData);
         toast({ title: '¡Registro de Empresa Completo!', description: `La cuenta para ${validatedInitialData.companyName} ha sido creada.` });
-        setStep('complete');
-    } catch (error: any)
-     {
+        setStep('complete'); // Move to complete state
+        onRegisterSuccess(); // Call the success callback
+     } catch (error: any) { // Corrected the catch block
         console.error("Account creation error:", error);
         setErrorMessage(error.message || 'No se pudo crear la cuenta de la empresa.');
         setStep('error'); // Go to error state
@@ -302,8 +317,10 @@ export function CompanyRegistrationForm() {
      if (isValid && handler) {
          // Ensure we pass only the validated data relevant to the current step's schema
          try {
+            // Use getValues to get potentially updated form state after trigger
+            const currentValues = form.getValues();
              // Use `parse` which throws on error, ensuring data matches the step's schema
-             const stepSpecificValues = schemaForValidation.parse(values);
+             const stepSpecificValues = schemaForValidation.parse(currentValues);
              await handler(stepSpecificValues);
          } catch (validationError) {
              // This catch block handles potential discrepancies if `trigger` passed
@@ -399,7 +416,7 @@ export function CompanyRegistrationForm() {
               <Info className="h-4 w-4" />
               <AlertTitle>Verificación de Contacto Requerida</AlertTitle>
               <AlertDescription>
-                Se ha enviado un código de 6 dígitos a <strong>{validatedInitialData.contactEmail}</strong>. Ingrésalo a continuación para verificar la dirección de correo electrónico de contacto. (Mock: Cualquier código de 6 dígitos funcionará).
+                Se ha enviado un código de 6 dígitos a <strong>{validatedInitialData.contactEmail}</strong>. Ingrésalo a continuación para verificar la dirección de correo electrónico de contacto. (Mock: Usa 654321).
               </AlertDescription>
             </Alert>
             <FormField
@@ -438,7 +455,7 @@ export function CompanyRegistrationForm() {
               <KeyRound className="h-4 w-4" />
               <AlertTitle>Último Paso</AlertTitle>
               <AlertDescription>
-                Crea una contraseña segura para la cuenta de la empresa. El nombre de usuario será el CUIT: <strong>{validatedInitialData.cuit}</strong>.
+                Crea una contraseña segura para la cuenta de la empresa. El nombre de usuario será el CUIT: <strong>{validatedInitialData.cuit.replace(/-/g, '')}</strong>.
               </AlertDescription>
             </Alert>
             <FormField
@@ -484,8 +501,8 @@ export function CompanyRegistrationForm() {
                  <CheckSquare className="h-4 w-4"/>
                 <AlertTitle>¡Registro de Empresa Exitoso!</AlertTitle>
                 <AlertDescription>
-                    La cuenta para <strong>{validatedInitialData.companyName}</strong> ha sido creada. El nombre de usuario es el CUIT: <strong>{validatedInitialData.cuit}</strong>.
-                     Ya puedes <Button variant="link" className="p-0 h-auto text-green-700 dark:text-green-300" onClick={() => {/* TODO: Implement login redirect */}}>iniciar sesión</Button> y publicar pasantías.
+                    La cuenta para <strong>{validatedInitialData.companyName}</strong> ha sido creada. El nombre de usuario es el CUIT: <strong>{validatedInitialData.cuit.replace(/-/g, '')}</strong>.
+                     Ahora serás redirigido/a al perfil de la empresa.
                  </AlertDescription>
             </Alert>
          )}

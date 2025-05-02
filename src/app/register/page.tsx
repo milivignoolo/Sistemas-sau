@@ -1,5 +1,6 @@
-'use client';
 
+'use client';
+import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,7 +11,18 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 export default function RegisterPage() {
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get('type') === 'company' ? 'company' : 'student';
+  const router = useRouter();
   const [activeTab, setActiveTab] = React.useState(defaultTab);
+
+
+  const handleStudentRegisterSuccess = () => {
+    router.push('/student/profile');
+  };
+
+  const handleCompanyRegisterSuccess = () => {
+    router.push('/company/profile');
+  };
+
 
   return (
     <div className="flex justify-center items-start pt-10">
@@ -26,7 +38,8 @@ export default function RegisterPage() {
               <CardDescription>Completa tus datos para acceder a las pasantías.</CardDescription>
             </CardHeader>
             <CardContent>
-              <StudentRegistrationForm />
+              {/* Pass the callback function */}
+              <StudentRegistrationForm onRegisterSuccess={handleStudentRegisterSuccess} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -37,7 +50,8 @@ export default function RegisterPage() {
               <CardDescription>Registra tu empresa para publicar ofertas de pasantías.</CardDescription>
             </CardHeader>
             <CardContent>
-              <CompanyRegistrationForm />
+             {/* Pass the callback function */}
+             <CompanyRegistrationForm onRegisterSuccess={handleCompanyRegisterSuccess} />
             </CardContent>
           </Card>
         </TabsContent>

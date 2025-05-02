@@ -98,6 +98,7 @@ export default function InternshipsPage() {
       {/* Internship List */}
       <main className="w-full md:w-3/4 lg:w-4/5">
         <h1 className="text-3xl font-bold mb-6">Pasantías Disponibles</h1>
+        <p className="text-muted-foreground mb-4">You are a student, you can see the internships and apply here.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {internships.map((internship) => (
             <InternshipCard key={internship.id} internship={internship} />
