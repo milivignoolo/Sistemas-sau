@@ -321,29 +321,29 @@ export default function PostInternshipPage() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          <FormField control={form.control} name="career" render={({ field }) => ( <FormItem> <FormLabel>Carrera Objetivo *</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Selecciona la carrera" /></SelectTrigger></FormControl> <SelectContent> {careers.map((career) => (<SelectItem key={career.id} value={career.id}>{career.name}</SelectItem>))} </SelectContent> </Select> <FormMessage /> </FormItem> )}/>
-                         <FormField
+                          <FormField
                             control={form.control}
                             name="requiredYear"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Año de Cursado (Mínimo)</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined} >
-                                        {/* Wrap Select with FormControl */}
-                                        <FormControl>
+                                    {/* Wrap the Select component completely within FormControl */}
+                                    <FormControl>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined} >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Cualquier año" />
                                             </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {/* Ensure a valid non-empty value, or adjust schema to allow empty strings */}
-                                            <SelectItem value="any">Cualquier año</SelectItem>
-                                            {yearOptions.map((year) => (
-                                                <SelectItem key={year} value={year}>
-                                                    {year === 'Graduado Reciente' ? year : `${year}° Año`}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                            <SelectContent>
+                                                {/* Use a non-empty value like "any" for the default option */}
+                                                <SelectItem value="any">Cualquier año</SelectItem>
+                                                {yearOptions.map((year) => (
+                                                    <SelectItem key={year} value={year}>
+                                                        {year === 'Graduado Reciente' ? year : `${year}° Año`}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                              )}
