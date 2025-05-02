@@ -23,6 +23,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, MailCheck, Info, UserCheck, KeyRound, CheckSquare, Languages, Brain } from 'lucide-react';
+import { SkillCheckboxGroup } from './skill-checkbox-group'; // Corrected import path
+
 
 // --- Predefined Lists ---
 const PREDEFINED_TECHNICAL_SKILLS = [
@@ -151,85 +153,6 @@ interface SysacadStudentData {
     approvedSubjects: string[];
     regularizedSubjects: string[];
     email: string;
-}
-
-// Helper component for Skill Checkboxes
-interface SkillCheckboxGroupProps {
-    control: any;
-    name: keyof z.infer<typeof stepThreeSchema>; // 'technicalSkills', 'softSkills', 'languages'
-    label: string;
-    skills: { id: string; name: string }[];
-    levels: string[];
-    icon: React.ReactNode;
-}
-
-function SkillCheckboxGroup({ control, name, label, skills, levels, icon }: SkillCheckboxGroupProps) {
-    const fieldName = name; // Use the key directly
-
-    return (
-        <FormField
-            control={control}
-            name={fieldName}
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel className="text-lg font-semibold mb-3 flex items-center gap-2">{icon} {label}</FormLabel>
-                    <div className="space-y-3">
-                        {skills.map((skill) => (
-                            <div key={skill.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 border p-3 rounded-md bg-muted/50">
-                                <div className="flex items-center space-x-2 flex-grow">
-                                    <Checkbox
-                                        id={`${fieldName}-${skill.id}`}
-                                        checked={!!field.value?.[skill.id]}
-                                        onCheckedChange={(checked) => {
-                                            const currentSkills = { ...(field.value || {}) };
-                                            if (checked) {
-                                                currentSkills[skill.id] = levels[0]; // Default to first level
-                                            } else {
-                                                delete currentSkills[skill.id];
-                                            }
-                                            field.onChange(currentSkills);
-                                        }}
-                                    />
-                                    <label
-                                        htmlFor={`${fieldName}-${skill.id}`}
-                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-grow"
-                                    >
-                                        {skill.name}
-                                    </label>
-                                </div>
-                                {field.value?.[skill.id] && (
-                                    <div className="w-full sm:w-48">
-                                         <Select
-                                            value={field.value[skill.id]}
-                                            onValueChange={(level) => {
-                                                const currentSkills = { ...(field.value || {}) };
-                                                currentSkills[skill.id] = level;
-                                                field.onChange(currentSkills);
-                                            }}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Seleccionar nivel" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {levels.map((level) => (
-                                                    <SelectItem key={level} value={level}>
-                                                        {level}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
-    );
 }
 
 
