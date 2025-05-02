@@ -41,19 +41,21 @@ async function verifyArcaApi(cuit: string) {
 async function sendCompanyVerificationEmail(email: string) {
   console.log(`Sending verification email to company contact: ${email}`);
   await new Promise(resolve => setTimeout(resolve, 1000));
-  console.log(`Mock verification code sent (simulated): 654321`); // Different code for company
+  const mockCode = '654321'; // Keep a consistent code for the simulation log
+  console.log(`Mock verification code sent (simulated): ${mockCode}`);
   return true;
 }
 
 async function verifyCompanyCode(email: string, code: string) {
   console.log(`Verifying company code ${code} for email: ${email}`);
   await new Promise(resolve => setTimeout(resolve, 1000));
-  if (code === '654321') { // Different code for company
-    console.log(`Company code ${code} verified successfully for ${email}`);
+  // Simulate success for *any* 6-digit code for easier testing
+  if (/^\d{6}$/.test(code)) { // Check if it's 6 digits
+    console.log(`Company code ${code} verified successfully for ${email} (Mock - Accepts any 6 digits)`);
     return true;
   } else {
-    console.error(`Incorrect company code ${code} for ${email}`);
-    throw new Error('Código de verificación incorrecto.');
+    console.error(`Incorrect or invalid format company code ${code} for ${email}`);
+    throw new Error('Código de verificación inválido (debe tener 6 dígitos).');
   }
 }
 
@@ -159,16 +161,24 @@ export function CompanyRegistrationForm() {
 
    // Update the resolver when the step changes
     React.useEffect(() => {
-        form.reset(form.getValues(), {
-             keepValues: true, // Keep current form values
+        // Get current form values before resetting
+        const currentValues = form.getValues();
+        form.reset(currentValues, { // Reset internal state but keep UI values
+             keepValues: true, // Keep current form values in the UI
              keepDirty: true,
-             keepErrors: true, // Keep existing errors until re-validation
+             keepErrors: false, // Clear previous step's errors
+             keepDefaultValues: false, // Don't revert to initial default values
+             keepIsSubmitted: false,
+             keepTouched: false,
+             keepIsValid: false,
         });
         // Explicitly create a new resolver instance based on the new step
         const newResolver = zodResolver(getCurrentSchema());
-        // @ts-ignore - Dynamically updating resolver (might need type assertion if TS complains)
+        // @ts-ignore - Dynamically updating resolver
         form.resolver = newResolver;
-    }, [step, form]);
+        // Trigger validation after a short delay to ensure state is updated
+        // setTimeout(() => form.trigger(), 50); // Optional: trigger validation immediately for the new step
+    }, [step, form]); // Dependencies: step and form instance
 
 
   // --- Submit Handlers for Each Step ---
@@ -187,16 +197,16 @@ export function CompanyRegistrationForm() {
         await sendCompanyVerificationEmail(values.contactEmail);
         toast({ title: 'Verifica tu Correo', description: `Se envió un código de verificación a ${values.contactEmail}.` });
         setStep('verifyEmail');
-      } else {
-         // This case might not be reached if verifyArcaApi throws error on failure
-         setErrorMessage('La verificación ARCA falló (simulado).');
-         setStep('error');
       }
+      // Removed the 'else' block because verifyArcaApi throws an error on failure
     } catch (error: any) {
-      console.error("ARCA verification error:", error);
-      setErrorMessage(error.message || 'Error en la verificación ARCA.');
-      form.setError("cuit", { type: "manual", message: error.message || 'Verificación ARCA fallida.' });
-      setStep('initial'); // Go back to initial step on ARCA error
+      console.error("ARCA or Email Send verification error:", error);
+      setErrorMessage(error.message || 'Error en la verificación inicial.');
+      // If ARCA failed specifically, set error on CUIT field
+      if (error.message.includes('ARCA')) {
+          form.setError("cuit", { type: "manual", message: error.message });
+      }
+      setStep('initial'); // Go back to initial step on error
     } finally {
       setIsLoading(false);
     }
@@ -281,7 +291,7 @@ export function CompanyRegistrationForm() {
              schemaForValidation = stepFourSchema;
              break;
         default:
-            console.log('Unhandled step or state:', step);
+            console.log('Submit called on unhandled step or state:', step);
             return; // No action for other steps like 'verifyArca', 'complete', 'error'
      }
 
@@ -290,13 +300,30 @@ export function CompanyRegistrationForm() {
 
      if (isValid && handler) {
          // Ensure we pass only the validated data relevant to the current step's schema
-         const stepSpecificValues = schemaForValidation.parse(values); // Re-parse with the specific schema
-         await handler(stepSpecificValues);
+         try {
+             // Use `parse` which throws on error, ensuring data matches the step's schema
+             const stepSpecificValues = schemaForValidation.parse(values);
+             await handler(stepSpecificValues);
+         } catch (validationError) {
+             // This catch block handles potential discrepancies if `trigger` passed
+             // but `parse` fails (though unlikely with zodResolver if set up correctly).
+             console.error("Schema parsing failed after trigger passed:", validationError);
+             toast({
+                 title: 'Error de Datos',
+                 description: 'Hubo un problema con los datos ingresados. Por favor, revisa el formulario.',
+                 variant: 'destructive',
+             });
+         }
      } else {
          console.log("Form validation failed for step:", step, form.formState.errors);
+         // Find the first error message to display
+         const errors = form.formState.errors;
+         const firstErrorField = fieldsToValidate?.find(field => errors[field]);
+         const firstErrorMessage = firstErrorField ? errors[firstErrorField]?.message : 'Por favor, corrige los errores marcados.';
+
          toast({
              title: 'Error de Validación',
-             description: 'Por favor, corrige los errores marcados en el formulario.',
+             description: typeof firstErrorMessage === 'string' ? firstErrorMessage : 'Por favor, revisa el formulario.',
              variant: 'destructive',
          });
      }
@@ -371,7 +398,7 @@ export function CompanyRegistrationForm() {
               <Info className="h-4 w-4" />
               <AlertTitle>Verificación de Contacto Requerida</AlertTitle>
               <AlertDescription>
-                Se ha enviado un código de 6 dígitos a <strong>{validatedInitialData.contactEmail}</strong>. Ingrésalo a continuación para verificar la dirección de correo electrónico de contacto.
+                Se ha enviado un código de 6 dígitos a <strong>{validatedInitialData.contactEmail}</strong>. Ingrésalo a continuación para verificar la dirección de correo electrónico de contacto. (Mock: Cualquier código de 6 dígitos funcionará).
               </AlertDescription>
             </Alert>
             <FormField
