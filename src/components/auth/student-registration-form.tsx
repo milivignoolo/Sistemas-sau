@@ -178,12 +178,12 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       case 'verify': return stepTwoSchema;
       case 'profile': return stepThreeSchema;
       case 'password': return stepFourSchema;
-      default: return null; // Return null for steps without a form schema ('complete', 'error')
+      default: return z.object({}); // Return empty schema for steps without a form schema
     }
   };
 
   const form = useForm<any>({
-    resolver: zodResolver(getCurrentSchema() ?? z.object({})), // Use empty schema if currentSchema is null
+    resolver: zodResolver(getCurrentSchema()), // Initialize with the first step's schema
     defaultValues: {
       universityId: '',
       dni: '',
@@ -208,7 +208,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       const data = await fetchSysacadData(values.universityId, values.dni);
       setStudentData(data);
       await sendVerificationEmail(data.email);
-      toast({ title: 'Verifica tu Correo', description: `Se envió un código de verificación a ${data.email}.` });
+      toast({ title: 'Verifica tu Correo', description: `Se envió un código de verificación a ${data.email}. (Mock: 123456)` });
       setStep('verify');
     } catch (error: any) {
       setErrorMessage(error.message || 'Ocurrió un error.');
@@ -267,7 +267,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
   };
 
   // Main submit handler
-  const onSubmit = async (values: any) => {
+ const onSubmit = async (values: any) => {
     // Prevent submission if already completed or in error state
     if (step === 'complete' || step === 'error') {
         console.log('Submission blocked, current step:', step);
@@ -275,16 +275,20 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
     }
 
     const currentSchema = getCurrentSchema();
-    // If there's no schema for the current step, don't proceed with validation/submission
-    if (!currentSchema) {
-        console.log('No schema found for current step:', step);
-        // This case handles 'complete' or 'error' steps implicitly
+    if (!currentSchema || typeof currentSchema.shape !== 'object' || currentSchema.shape === null) {
+        console.error('Invalid schema for current step:', step);
+        toast({
+            title: 'Error Interno',
+            description: 'No se pudo determinar la validación para este paso.',
+            variant: 'destructive',
+        });
         return;
     }
 
     // Use trigger to manually validate based on current schema's fields
     const fieldsToValidate = Object.keys(currentSchema.shape) as (keyof typeof values)[];
     const isValid = await form.trigger(fieldsToValidate);
+
 
     if (!isValid) {
         console.error("Validation failed:", form.formState.errors);
@@ -331,10 +335,10 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
    React.useEffect(() => {
     const currentSchema = getCurrentSchema();
     // @ts-ignore - Dynamically updating resolver
-    form.resolver = zodResolver(currentSchema ?? z.object({}));
+    form.resolver = zodResolver(currentSchema);
     // Trigger validation after a short delay to ensure state is updated
     // Only trigger validation if there's a schema for the current step
-    if (currentSchema) {
+    if (currentSchema && currentSchema.shape) { // Check if shape exists
         setTimeout(() => form.trigger(), 50);
     }
   }, [step, form]);
