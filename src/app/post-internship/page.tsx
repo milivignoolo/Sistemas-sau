@@ -320,7 +320,31 @@ export default function PostInternshipPage() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          <FormField control={form.control} name="career" render={({ field }) => ( <FormItem> <FormLabel>Carrera Objetivo *</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Selecciona la carrera" /></SelectTrigger></FormControl> <SelectContent> {careers.map((career) => (<SelectItem key={career.id} value={career.id}>{career.name}</SelectItem>))} </SelectContent> </Select> <FormMessage /> </FormItem> )}/>
-                         <FormField control={form.control} name="requiredYear" render={({ field }) => ( <FormItem> <FormLabel>Año de Cursado (Mínimo)</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Cualquier año" /></SelectTrigger></FormControl> <SelectContent> <SelectItem value="">Cualquier año</SelectItem> {yearOptions.map((year) => (<SelectItem key={year} value={year}>{year}° Año</SelectItem>))} </SelectContent> </Select> <FormMessage /> </FormItem> )}/>
+                         <FormField
+                            control={form.control}
+                            name="requiredYear"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Año de Cursado (Mínimo)</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined} >
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Cualquier año" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="any">Cualquier año</SelectItem> {/* Use 'any' or another non-empty value */}
+                                            {yearOptions.map((year) => (
+                                                <SelectItem key={year} value={year}>
+                                                    {year === 'Graduado Reciente' ? year : `${year}° Año`}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                             )}
+                         />
                     </div>
 
                     {/* Technical Skills Checkboxes */}
