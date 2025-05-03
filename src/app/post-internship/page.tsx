@@ -1,7 +1,7 @@
 
 
 'use client';
-import { redirect } from 'next/navigation';
+// Removed redirect as we are handling this client-side now
 import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -24,20 +24,26 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker
 import { useToast } from '@/hooks/use-toast';
-import { Briefcase, Clock, Hash, CalendarDays, ListChecks, UserCheck, AlertTriangle, CheckSquare, Brain, Languages, Lock } from 'lucide-react';
+import { Briefcase, Clock, Hash, CalendarDays, ListChecks, UserCheck, AlertTriangle, CheckSquare, Brain, Languages, Lock, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { SkillCheckboxGroup } from '@/components/auth/skill-checkbox-group'; // Import the reusable component
 import Link from 'next/link'; // Import Link for redirect button
 
 // --- Mock Authentication (Replace with real auth logic) ---
-// In a real app, you'd get this from a session, context, or server-side props
-const getCurrentUserRole = (): 'company' | 'student' | null => {
-    // Simulate a logged-in company for demonstration
-        // Replace with actual logic to check user session/token
-        return 'company';
-    // return 'student'; // Simulate a student
-    // return null; // Simulate not logged in
+// Function to safely interact with localStorage (runs only on client)
+const safeLocalStorageGet = (key: string) => {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+    try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : null;
+    } catch (error) {
+        console.error(`Error reading localStorage key “${key}”:`, error);
+        return null;
+    }
 };
+
 
 // --- Predefined Lists (Similar to student registration) ---
 const PREDEFINED_TECHNICAL_SKILLS = [
@@ -90,20 +96,20 @@ const formSchema = z.object({
   title: z.string().min(5, { message: 'El título debe tener al menos 5 caracteres.' }),
   description: z.string().min(20, { message: 'La descripción debe tener al menos 20 caracteres.' }),
   area: z.string().min(1, { message: 'Debes seleccionar un área.' }),
-  numberOfVacancies: z.string().regex(/^\d+$/, { message: "Debe ser un número positivo."}).optional(),
+  numberOfVacancies: z.string().regex(/^\d+$/, { message: "Debe ser un número positivo."}).optional().or(z.literal('')), // Allow empty string
   startDate: z.date().optional(),
   endDate: z.date().optional(),
   compensation: z.string().optional(), // e.g., "Remunerada", "No remunerada", "$XXXX ARS"
   isRemote: z.boolean().default(false),
   location: z.string().min(3, { message: 'La ubicación es requerida.' }),
   duration: z.string().optional(), // e.g., "3 meses", "6 meses"
-  weeklyHours: z.string().regex(/^\d+$/, { message: "Debe ser un número positivo."}).optional(),
+  weeklyHours: z.string().regex(/^\d+$/, { message: "Debe ser un número positivo."}).optional().or(z.literal('')), // Allow empty string
   estimatedSchedule: z.string().optional(), // e.g., "Lunes a Viernes 9-13hs"
   tasks: z.string().min(10, { message: 'Describe las tareas principales (al menos 10 caracteres).' }),
 
   // Requirements
   career: z.string().min(1, { message: 'Debes seleccionar una carrera objetivo.' }),
-  requiredYear: z.string().optional(), // Using string for Select value
+  requiredYear: z.string().optional(), // Using string for Select value ('any', '1', '2'...)
   technicalSkillsRequired: skillLevelSchema,
   softSkillsRequired: skillLevelSchema,
   languagesRequired: skillLevelSchema,
@@ -146,13 +152,24 @@ const areas = [
     {id: 'infra', name: 'Infraestructura / Redes'},
     {id: 'otro', name: 'Otro'},
 ];
-const yearOptions = ['1', '2', '3', '4', '5', 'Graduado Reciente'];
+const yearOptions = ['any', '1', '2', '3', '4', '5', 'Graduado Reciente'];
 
 
 export default function PostInternshipPage() {
   const { toast } = useToast();
-  const userRole = getCurrentUserRole(); // Check user role
+  const [isLoadingAuth, setIsLoadingAuth] = React.useState(true);
+  const [userRole, setUserRole] = React.useState<'company' | 'student' | null>(null);
 
+
+  // --- Authorization Check ---
+  React.useEffect(() => {
+    // This effect runs only on the client after hydration
+    const profile = safeLocalStorageGet('userProfile');
+    if (profile && profile.userType) {
+      setUserRole(profile.userType);
+    }
+    setIsLoadingAuth(false);
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -173,7 +190,7 @@ export default function PostInternshipPage() {
       tasks: '',
       // Requirements
       career: '',
-      requiredYear: '',
+      requiredYear: 'any', // Default to 'any'
       technicalSkillsRequired: {},
       softSkillsRequired: {},
       languagesRequired: {},
@@ -185,25 +202,64 @@ export default function PostInternshipPage() {
 
    // Define submit handler
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    // Ensure user is a company before submitting
+     if (userRole !== 'company') {
+        toast({
+            title: 'Acción no permitida',
+            description: 'Solo las empresas pueden publicar pasantías.',
+            variant: 'destructive',
+        });
+        return;
+    }
+
+    // Get company ID from userProfile (assuming it's stored there)
+    const userProfile = safeLocalStorageGet('userProfile');
+    const companyId = userProfile?.username; // Assuming username (CUIT) is the company ID
+
+     if (!companyId) {
+         toast({
+            title: 'Error',
+            description: 'No se pudo identificar la empresa. Por favor, inicia sesión de nuevo.',
+            variant: 'destructive',
+         });
+         return;
+     }
+
+
     // TODO: Implement actual internship posting logic (e.g., API call)
-    // Assume authentication context provides company ID
-    console.log('New Internship Data (Pending Verification):', values);
+    // Include companyId in the data sent to the backend
+    const internshipData = {
+        ...values,
+        companyId: companyId, // Add company ID
+        status: 'pending', // Set initial status
+    };
+    console.log('New Internship Data (Pending Verification):', internshipData);
 
     // Simulate API call to backend to save data with 'pending' status
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
-            toast({
-                title: 'Pasantía Enviada para Verificación',
-                description: 'La oferta de pasantía ha sido enviada y está pendiente de revisión por la SAU. Recibirás una notificación cuando sea aprobada.',
-                variant: 'default' // Use default variant for pending status (less alarming than 'info' maybe)
-            });
-        
+    toast({
+        title: 'Pasantía Enviada para Verificación',
+        description: 'La oferta de pasantía ha sido enviada y está pendiente de revisión por la SAU. Recibirás una notificación cuando sea aprobada.',
+        variant: 'default' // Use default variant for pending status
+    });
+
     // Optionally reset the form or redirect
     form.reset();
     // router.push('/company/dashboard'); // Example redirect
   }
 
-  // --- Authorization Check ---
+   // --- Loading State ---
+   if (isLoadingAuth) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-4 text-muted-foreground">Verificando autorización...</p>
+      </div>
+    );
+  }
+
+  // --- Render Access Restricted if not a company ---
   if (userRole !== 'company') {
     return (
         <div className="flex flex-col items-center justify-center h-full mt-10 text-center">
@@ -216,22 +272,27 @@ export default function PostInternshipPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Link href="/login" passHref>
-                        <Button className="w-full">
-                            Ir a Iniciar Sesión
+                     <Link href="/login?redirect=/post-internship" passHref> {/* Added redirect query param */}
+                         <Button className="w-full">
+                             Ir a Iniciar Sesión como Empresa
+                        </Button>
+                     </Link>
+                     {/* Optional: Link to company registration */}
+                     <Link href="/register?type=company" passHref>
+                         <Button variant="link" className="w-full mt-2">
+                             O regístrate como empresa
                         </Button>
                     </Link>
-                </CardContent>
+                 </CardContent>
             </Card>
-            <div className="mt-10 text-gray-500">
-                <p>You are a Company, you can publish a new internship here.</p>
-                </div>
+             {/* Removed the redundant English text */}
         </div>
     );
   }
   // --- End Authorization Check ---
 
 
+  // --- Render Form if user is a company ---
   return (
     <div className="max-w-4xl mx-auto">
        <Card>
@@ -290,7 +351,11 @@ export default function PostInternshipPage() {
                                             value={field.value}
                                             onSelect={field.onChange}
                                             placeholder="Fin estimado"
-                                            disabled={(date) => form.getValues("startDate") ? date < form.getValues("startDate")! : false}
+                                            disabled={(date) => {
+                                               const startDate = form.getValues("startDate");
+                                               // Disable dates before start date, only if start date is set
+                                               return startDate ? date < startDate : false;
+                                            }}
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -330,23 +395,21 @@ export default function PostInternshipPage() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Año de Cursado (Mínimo)</FormLabel>
-                                    {/* Wrap the Select component completely within FormControl */}
-                                    <FormControl>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || undefined} >
+                                    <Select onValueChange={field.onChange} value={field.value || 'any'} >
+                                        <FormControl>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Cualquier año" />
                                             </SelectTrigger>
-                                            <SelectContent>
-                                                {/* Use a non-empty value like "any" for the default option */}
-                                                <SelectItem value="any">Cualquier año</SelectItem>
-                                                {yearOptions.map((year) => (
-                                                    <SelectItem key={year} value={year}>
-                                                        {year === 'Graduado Reciente' ? year : `${year}° Año`}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </FormControl>
+                                        </FormControl>
+                                        <SelectContent>
+                                             <SelectItem value="any">Cualquier año</SelectItem>
+                                            {yearOptions.filter(y => y !== 'any').map((year) => ( // Filter out 'any' for items
+                                                 <SelectItem key={year} value={year}>
+                                                    {year === 'Graduado Reciente' ? year : `${year}° Año`}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                              )}
@@ -452,7 +515,7 @@ export default function PostInternshipPage() {
                 <Separator />
 
                 <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? 'Enviando...' : 'Enviar Pasantía para Verificación'}
+                  {form.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</> : 'Enviar Pasantía para Verificación'}
                 </Button>
               </form>
             </Form>
