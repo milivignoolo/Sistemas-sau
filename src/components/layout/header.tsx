@@ -1,9 +1,11 @@
+
 'use client'; // Add 'use client' for useState and useEffect
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, Briefcase, Building, UserPlus, LogIn, LogOut } from 'lucide-react'; // Changed User icon to LogOut
+import { GraduationCap, Briefcase, Building, UserPlus, LogIn, LogOut, User } from 'lucide-react'; // Changed User icon to LogOut, Added User
 import React, { useState, useEffect } from 'react'; // Import useState and useEffect
+import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
 
 // --- localStorage Interaction (Client-Side Only) ---
 const safeLocalStorageGet = (key: string) => {
@@ -20,8 +22,16 @@ const safeLocalStorageGet = (key: string) => {
     }
 };
 
+// Simple user profile type
+interface UserProfile {
+    username: string;
+    userType: 'student' | 'company';
+    // Add other potential fields if needed, e.g., name for display
+}
+
+
 export default function Header() {
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Start loading
 
   useEffect(() => {
@@ -61,7 +71,7 @@ export default function Header() {
              </Button>
           </Link>
            {/* Link to Post Internship for logged-in companies */}
-           {userProfile?.userType === 'company' && (
+           {!isLoading && userProfile?.userType === 'company' && (
              <Link href="/post-internship" passHref>
                <Button variant="ghost" className="text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground text-xs sm:text-sm px-1 sm:px-2">
                  {/* Consider a different icon, maybe FilePlus */}
@@ -73,13 +83,17 @@ export default function Header() {
           {/* Conditional Rendering based on loading state and profile */}
           {isLoading ? (
             <>
-                {/* Optional: Show skeleton loaders while checking auth state */}
-                <div className="h-9 w-20 animate-pulse rounded-md bg-primary/80"></div>
-                <div className="h-9 w-20 animate-pulse rounded-md bg-primary/80"></div>
+                {/* Skeleton loaders while checking auth state */}
+                <Skeleton className="h-9 w-20 rounded-md bg-primary/80" />
+                <Skeleton className="h-9 w-20 rounded-md bg-primary/80" />
             </>
           ) : userProfile ? (
              <>
-                {/* Removed Profile Button */}
+                {/* Display Username or Welcome Message */}
+                 <span className="text-xs sm:text-sm px-2 sm:px-3 hidden md:inline-flex items-center gap-1">
+                     <User size={16} />
+                     {userProfile.username} {/* Show username */}
+                 </span>
                 <Button
                     variant="outline"
                     onClick={handleLogout}
@@ -90,6 +104,7 @@ export default function Header() {
             </>
           ) : (
             <>
+              {/* Show Register and Login only if not logged in */}
               <Link href="/register" passHref>
                 <Button variant="secondary" className="bg-accent text-accent-foreground hover:bg-accent/90 text-xs sm:text-sm px-2 sm:px-3">
                   <UserPlus className="mr-1 size-4" /> Registrarse
@@ -107,3 +122,4 @@ export default function Header() {
     </header>
   );
 }
+

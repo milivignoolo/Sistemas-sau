@@ -38,30 +38,69 @@ const safeLocalStorageGet = (key: string) => {
 };
 
 // --- Mock Authentication Function ---
+// Mock Student Profile structure (align with registration form for match score)
+interface StudentProfile {
+    username: string; // Legajo
+    userType: 'student';
+    password?: string; // Include password for the mock data itself
+    career: string; // Career ID like 'sistemas'
+    currentYear: number;
+    profile?: { // Nested profile object similar to registration
+        technicalSkills?: { [key: string]: string }; // { 'react': 'Intermedio', ... }
+        softSkills?: { [key: string]: string };
+        languages?: { [key: string]: string };
+    }
+}
+
+interface CompanyProfile {
+    username: string; // CUIT (no dashes)
+    userType: 'company';
+    password?: string; // Include password for the mock data itself
+    companyName?: string; // Add company name for display/context if needed
+    // Add other company-specific fields if necessary
+}
+
 async function authenticateUser(username: string, password: string): Promise<{ success: boolean, userType: 'student' | 'company', username: string }> {
   console.log(`Attempting to authenticate user: ${username} with password: ${password}`);
   await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
   let isAuthenticated = false;
   let userType: 'student' | 'company' | 'unknown' = 'unknown';
-  let foundProfile: any = null;
+  let foundProfile: StudentProfile | CompanyProfile | null = null;
 
   // --- MOCK USER CHECK (Prioritized for Testing) ---
-  const validStudent = { username: '12345', password: 'password123', userType: 'student' };
-  const validCompany = { username: '12345678901', password: 'password123', userType: 'company' };
+  const validStudent: StudentProfile = {
+      username: '12345',
+      password: 'password123',
+      userType: 'student',
+      career: 'sistemas', // Match career ID used in internship data
+      currentYear: 4,
+      profile: {
+          technicalSkills: { javascript: 'Intermedio', react: 'Básico', git: 'Intermedio', nodejs: 'Básico' },
+          softSkills: { teamwork: 'Desarrollado', communication: 'Fuerte', learning: 'Fuerte' },
+          languages: { english: 'Intermedio (B1/B2)' },
+      }
+  };
+  const validCompany: CompanyProfile = {
+      username: '12345678901', // CUIT without dashes
+      password: 'password123',
+      userType: 'company',
+      companyName: 'Tecno Soluciones S.A. (Mock)' // Example name
+  };
 
   console.log(`Comparing with MOCK Student: User='${validStudent.username}', Pass='${validStudent.password}'`);
   if (username === validStudent.username && password === validStudent.password) {
     isAuthenticated = true;
     userType = 'student';
-    foundProfile = validStudent; // Use mock data
+    foundProfile = validStudent; // Use detailed mock student data
     console.log("Matched MOCK student user.");
   } else {
       console.log(`Comparing with MOCK Company: User='${validCompany.username}', Pass='${validCompany.password}'`);
+      // Username from form is already normalized (no dashes)
       if (username === validCompany.username && password === validCompany.password) {
         isAuthenticated = true;
         userType = 'company';
-        foundProfile = validCompany; // Use mock data
+        foundProfile = validCompany; // Use mock company data
         console.log("Matched MOCK company user.");
       } else {
           console.log("Input does not match mock credentials.");
@@ -75,7 +114,6 @@ async function authenticateUser(username: string, password: string): Promise<{ s
       console.log("Stored profile:", storedUserProfile);
 
       if (storedUserProfile) {
-          // Check if the stored username matches the input username
           // Ensure username comparison accounts for CUIT (no dashes) vs Legajo
           const normalizedStoredUsername = storedUserProfile.username?.replace?.(/-/g, '') || storedUserProfile.username;
           // Username passed in is already normalized
@@ -87,7 +125,7 @@ async function authenticateUser(username: string, password: string): Promise<{ s
           if (normalizedStoredUsername === normalizedInputUsername && storedUserProfile.password === password) {
               isAuthenticated = true;
               userType = storedUserProfile.userType as 'student' | 'company';
-              foundProfile = storedUserProfile;
+              foundProfile = storedUserProfile; // Use the stored profile
               console.log("Credentials match stored localStorage profile!");
           } else {
               console.log("Credentials do NOT match stored localStorage profile.");
@@ -98,12 +136,16 @@ async function authenticateUser(username: string, password: string): Promise<{ s
   }
 
 
-  if (isAuthenticated && (userType === 'student' || userType === 'company')) {
+  if (isAuthenticated && (userType === 'student' || userType === 'company') && foundProfile) {
     console.log(`Authentication successful for user: ${username}, Type: ${userType}`);
-    // IMPORTANT: Re-save the found profile to ensure 'userProfile' key is set correctly, especially if using mock data fallback
+    // IMPORTANT: Re-save the found profile to ensure 'userProfile' key is set correctly with all necessary data
+    // Remove password before saving to localStorage for security (even in mocks)
+    const profileToSave = { ...foundProfile };
+    delete profileToSave.password;
+
     if (typeof window !== 'undefined') {
-        localStorage.setItem('userProfile', JSON.stringify(foundProfile));
-        console.log("Saved found profile to localStorage.");
+        localStorage.setItem('userProfile', JSON.stringify(profileToSave));
+        console.log("Saved found profile (without password) to localStorage.");
     }
     return { success: true, userType: userType, username: username };
   } else {
@@ -153,7 +195,7 @@ export function LoginForm() {
     setHasAttemptedSubmit(true); // Mark that a submit attempt has been made
 
     // Normalize username: remove hyphens if it looks like a CUIT
-    const normalizedUsername = /^\d{2}-?\d{8}-?\d{1}$/.test(values.username)
+    const normalizedUsername = /^\d{2}-?\d{8}-?\d{1}$/.test(values.username) || /^\d{11}$/.test(values.username)
         ? values.username.replace(/-/g, '')
         : values.username;
 
@@ -182,7 +224,7 @@ export function LoginForm() {
       console.error("Login error caught in onSubmit:", error);
       setErrorMessage(error.message || 'Error al iniciar sesión.');
       // Trigger validation again on error to show messages if needed
-      form.trigger();
+      // form.trigger(); // Maybe not needed if reValidateMode is onChange
     } finally {
       setIsLoading(false);
     }
@@ -258,4 +300,3 @@ export function LoginForm() {
     </Form>
   );
 }
-
