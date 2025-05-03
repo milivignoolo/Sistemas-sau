@@ -201,7 +201,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
   const handleInitialSubmit = async (values: z.infer<typeof stepOneSchema>) => {
     setIsLoading(true);
     setErrorMessage(null);
-    setHasAttemptedSubmit(true); // Mark attempt
+    // setHasAttemptedSubmit(true); // Set attempt flag on handler start
     // Store validated initial data temporarily
     setTempCompanyData(values);
     setStep('verifyArca');
@@ -218,6 +218,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
     } catch (error: any) {
       console.error("ARCA or Email Send verification error:", error);
       setErrorMessage(error.message || 'Error en la verificación inicial.');
+      setHasAttemptedSubmit(true); // Set attempt flag on error
       if (error.message.includes('ARCA')) {
           form.setError("cuit", { type: "manual", message: error.message });
       } else {
@@ -241,7 +242,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
     }
     setIsLoading(true);
     setErrorMessage(null);
-    setHasAttemptedSubmit(true); // Mark attempt
+    // setHasAttemptedSubmit(true); // Set attempt flag on handler start
     try {
       console.log(`Attempting to verify code '${values.verificationCode}' for email '${tempCompanyData.contactEmail}'`);
       await verifyCompanyCode(tempCompanyData.contactEmail, values.verificationCode);
@@ -251,6 +252,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
     } catch (error: any) {
        console.error("Email verification code error:", error);
        setErrorMessage(error.message || 'Error en la verificación del código.');
+       setHasAttemptedSubmit(true); // Set attempt flag on error
        form.setError("verificationCode", { type: "manual", message: error.message || 'Código incorrecto.' });
     } finally {
       setIsLoading(false);
@@ -267,7 +269,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
     }
     setIsLoading(true);
     setErrorMessage(null);
-    setHasAttemptedSubmit(true); // Mark attempt
+    // setHasAttemptedSubmit(true); // Set attempt flag on handler start
 
     const usernameCuit = tempCompanyData.cuit.replace(/-/g, '');
 
@@ -285,6 +287,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
      } catch (error: any) {
         console.error("Account creation error:", error);
         setErrorMessage(error.message || 'No se pudo crear la cuenta de la empresa.');
+        setHasAttemptedSubmit(true); // Set attempt flag on error
         setStep('error');
     } finally {
         setIsLoading(false);
@@ -292,67 +295,42 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
   };
 
 
-  // --- Main Submit Handler ---
+   // Main Submit Handler - uses react-hook-form's handleSubmit
   const onSubmit = async (values: CompanyFormData) => {
      // Prevent submission during intermediate/final steps or loading
-     if (step === 'complete' || step === 'error' || step === 'verifyArca' || isLoading) return;
+     if (step === 'complete' || step === 'error' || step === 'verifyArca' || isLoading) {
+         console.log('Submission blocked, current step:', step, 'isLoading:', isLoading);
+         return;
+     }
 
-     // setHasAttemptedSubmit(true); // Let handlers manage this
-
-     let handler: ((data: any) => Promise<void>) | undefined = undefined;
-     let schemaForValidation: z.ZodSchema<any> = z.object({});
+     // Reset error message for the current step attempt
+     setErrorMessage(null);
+     setHasAttemptedSubmit(true); // Mark attempt for UI feedback
 
      switch (step) {
-        case 'initial':
-            schemaForValidation = stepOneSchema;
-            handler = handleInitialSubmit;
-            break;
-        case 'verifyEmail':
-             schemaForValidation = stepThreeSchema;
-             handler = handleEmailVerifySubmit;
-             break;
-        case 'password':
-             schemaForValidation = stepFourSchema;
-             handler = handlePasswordSubmit;
-             break;
-        default:
-            console.log('Submit called on unhandled step:', step);
-            return;
+        case 'initial': await handleInitialSubmit(values as z.infer<typeof stepOneSchema>); break;
+        case 'verifyEmail': await handleEmailVerifySubmit(values as z.infer<typeof stepThreeSchema>); break;
+        case 'password': await handlePasswordSubmit(values as z.infer<typeof stepFourSchema>); break;
+        default: console.log('Submit called on unhandled step:', step);
      }
+  };
 
-     // Validate using the resolver (which respects mode: 'onSubmit')
-     const fieldsToValidate = Object.keys(schemaForValidation.shape) as (keyof CompanyFormData)[];
-     const isValid = await form.trigger(fieldsToValidate);
+   // Error handler for react-hook-form's handleSubmit
+   const onFormError = (errors: any) => {
+       console.error("Form validation failed:", errors);
+       setHasAttemptedSubmit(true); // Ensure error messages are shown
 
-     if (isValid && handler) {
-         try {
-             // Get potentially updated values and parse against the specific step schema
-             const currentValues = form.getValues();
-             const stepSpecificValues = schemaForValidation.parse(currentValues);
-             await handler(stepSpecificValues);
-         } catch (validationError) {
-             console.error("Schema parsing failed after trigger passed:", validationError);
-              setHasAttemptedSubmit(true); // Show errors now
-             toast({
-                 title: 'Error de Datos',
-                 description: 'Hubo un problema con los datos ingresados. Por favor, revisa el formulario.',
-                 variant: 'destructive',
-             });
-         }
-     } else if (!isValid) {
-         console.log("Form validation failed for step:", step, form.formState.errors);
-         // Errors will be shown by FormMessage components
-         const errors = form.formState.errors;
-         const firstErrorField = Object.keys(schemaForValidation.shape).find(field => errors[field as keyof CompanyFormData]);
-         const firstErrorMessage = firstErrorField ? errors[firstErrorField as keyof CompanyFormData]?.message : 'Por favor, corrige los errores marcados.';
-         toast({
-             title: 'Error de Validación',
-             description: typeof firstErrorMessage === 'string' ? firstErrorMessage : 'Por favor, revisa el formulario.',
-             variant: 'destructive',
-         });
-          setHasAttemptedSubmit(true); // Set attempt flag on failed validation
-     }
- };
+       // Find the first error message to display in toast
+       const firstErrorField = Object.keys(errors)[0];
+       const firstErrorMessage = firstErrorField ? errors[firstErrorField]?.message : 'Por favor, corrige los errores marcados.';
+
+       toast({
+           title: 'Error de Validación',
+           description: typeof firstErrorMessage === 'string' ? firstErrorMessage : 'Error desconocido.',
+           variant: 'destructive',
+       });
+   };
+
 
   // Effect to update resolver when step changes
   useEffect(() => {
@@ -377,7 +355,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
         verificationCode: '',
         password: '',
         confirmPassword: '',
-    });
+    }, { keepErrors: false, keepDirty: false, keepValues: false }); // Ensure full reset
 
     setHasAttemptedSubmit(false); // Reset submit attempt flag when step changes
     setErrorMessage(null); // Clear global error message when step changes
@@ -390,10 +368,11 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      {/* Use react-hook-form's handleSubmit */}
+      <form onSubmit={form.handleSubmit(onSubmit, onFormError)} className="space-y-6">
 
-         {/* Show global error message only if it exists AND an attempt was made */}
-         {hasAttemptedSubmit && errorMessage && (
+         {/* Show global API error message only if it exists */}
+         {errorMessage && (
             <Alert variant="destructive">
                 <Info className="h-4 w-4" />
                 <AlertTitle>Error</AlertTitle>
@@ -420,29 +399,29 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
           <>
             <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><Building size={20} /> Datos de la Empresa</h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <FormField control={form.control} name="companyName" render={({ field }) => ( <FormItem> <FormLabel>Razón Social</FormLabel> <FormControl><Input placeholder="Tecno Soluciones S.A." {...field} disabled={isLoading} /></FormControl> {hasAttemptedSubmit && form.formState.errors.companyName && <FormMessage />} </FormItem> )}/>
-                 <FormField control={form.control} name="cuit" render={({ field }) => ( <FormItem> <FormLabel>CUIT</FormLabel> <FormControl><Input placeholder="30-12345678-9" {...field} disabled={isLoading} /></FormControl> {hasAttemptedSubmit && form.formState.errors.cuit && <FormMessage />} </FormItem> )}/>
+                 <FormField control={form.control} name="companyName" render={({ field }) => ( <FormItem> <FormLabel>Razón Social</FormLabel> <FormControl><Input placeholder="Tecno Soluciones S.A." {...field} disabled={isLoading} /></FormControl> <FormMessage /> </FormItem> )}/>
+                 <FormField control={form.control} name="cuit" render={({ field }) => ( <FormItem> <FormLabel>CUIT</FormLabel> <FormControl><Input placeholder="30-12345678-9" {...field} disabled={isLoading} /></FormControl> <FormMessage /> </FormItem> )}/>
              </div>
-             <FormField control={form.control} name="industry" render={({ field }) => ( <FormItem> <FormLabel>Rubro / Actividad Principal</FormLabel> <FormControl><Input placeholder="Ej: Desarrollo de Software, Consultoría IT" {...field} disabled={isLoading}/></FormControl> {hasAttemptedSubmit && form.formState.errors.industry && <FormMessage />} </FormItem> )}/>
-             <FormField control={form.control} name="address" render={({ field }) => ( <FormItem> <FormLabel>Domicilio Legal</FormLabel> <FormControl><Input placeholder="Av. Siempre Viva 742, Springfield" {...field} disabled={isLoading}/></FormControl> {hasAttemptedSubmit && form.formState.errors.address && <FormMessage />} </FormItem> )}/>
-             <FormField control={form.control} name="workLocation" render={({ field }) => ( <FormItem> <FormLabel>Ubicación del Lugar de Trabajo</FormLabel> <FormControl><Input placeholder="Ej: Resistencia, Chaco / Remoto / Híbrido" {...field} disabled={isLoading}/></FormControl> {hasAttemptedSubmit && form.formState.errors.workLocation && <FormMessage />} </FormItem> )}/>
+             <FormField control={form.control} name="industry" render={({ field }) => ( <FormItem> <FormLabel>Rubro / Actividad Principal</FormLabel> <FormControl><Input placeholder="Ej: Desarrollo de Software, Consultoría IT" {...field} disabled={isLoading}/></FormControl> <FormMessage /> </FormItem> )}/>
+             <FormField control={form.control} name="address" render={({ field }) => ( <FormItem> <FormLabel>Domicilio Legal</FormLabel> <FormControl><Input placeholder="Av. Siempre Viva 742, Springfield" {...field} disabled={isLoading}/></FormControl> <FormMessage /> </FormItem> )}/>
+             <FormField control={form.control} name="workLocation" render={({ field }) => ( <FormItem> <FormLabel>Ubicación del Lugar de Trabajo</FormLabel> <FormControl><Input placeholder="Ej: Resistencia, Chaco / Remoto / Híbrido" {...field} disabled={isLoading}/></FormControl> <FormMessage /> </FormItem> )}/>
 
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="website" render={({ field }) => ( <FormItem> <FormLabel><LinkIcon size={14} className="inline mr-1"/> Sitio Web (Opcional)</FormLabel> <FormControl><Input type="url" placeholder="https://www.empresa.com" {...field} disabled={isLoading}/></FormControl> {hasAttemptedSubmit && form.formState.errors.website && <FormMessage />} </FormItem> )}/>
-                <FormField control={form.control} name="socialMedia" render={({ field }) => ( <FormItem> <FormLabel><Share2 size={14} className="inline mr-1"/> Redes Sociales (Opcional)</FormLabel> <FormControl><Input placeholder="LinkedIn, Instagram, etc." {...field} disabled={isLoading}/></FormControl> {hasAttemptedSubmit && form.formState.errors.socialMedia && <FormMessage />} </FormItem> )}/>
+                <FormField control={form.control} name="website" render={({ field }) => ( <FormItem> <FormLabel><LinkIcon size={14} className="inline mr-1"/> Sitio Web (Opcional)</FormLabel> <FormControl><Input type="url" placeholder="https://www.empresa.com" {...field} disabled={isLoading}/></FormControl> <FormMessage /> </FormItem> )}/>
+                <FormField control={form.control} name="socialMedia" render={({ field }) => ( <FormItem> <FormLabel><Share2 size={14} className="inline mr-1"/> Redes Sociales (Opcional)</FormLabel> <FormControl><Input placeholder="LinkedIn, Instagram, etc." {...field} disabled={isLoading}/></FormControl> <FormMessage /> </FormItem> )}/>
              </div>
 
-            <FormField control={form.control} name="description" render={({ field }) => ( <FormItem> <FormLabel>Descripción de la Empresa (Opcional)</FormLabel> <FormControl><Textarea placeholder="Breve descripción de la empresa, su rubro, cultura, etc." className="resize-none" {...field} disabled={isLoading}/></FormControl> <FormDescription>Esta descripción ayudará a los estudiantes a conocer mejor tu empresa.</FormDescription> {hasAttemptedSubmit && form.formState.errors.description && <FormMessage />} </FormItem> )}/>
+            <FormField control={form.control} name="description" render={({ field }) => ( <FormItem> <FormLabel>Descripción de la Empresa (Opcional)</FormLabel> <FormControl><Textarea placeholder="Breve descripción de la empresa, su rubro, cultura, etc." className="resize-none" {...field} disabled={isLoading}/></FormControl> <FormDescription>Esta descripción ayudará a los estudiantes a conocer mejor tu empresa.</FormDescription> <FormMessage /> </FormItem> )}/>
 
              <Separator className="my-6" />
              <h3 className="text-lg font-semibold border-b pb-2 mb-4 flex items-center gap-2"><User size={20}/> Datos de Contacto (RRHH)</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="contactName" render={({ field }) => ( <FormItem> <FormLabel>Nombre del Contacto</FormLabel> <FormControl><Input placeholder="María García" {...field} disabled={isLoading}/></FormControl> {hasAttemptedSubmit && form.formState.errors.contactName && <FormMessage />} </FormItem> )}/>
-                <FormField control={form.control} name="contactRole" render={({ field }) => ( <FormItem> <FormLabel>Cargo del Contacto</FormLabel> <FormControl><Input placeholder="Responsable de RRHH" {...field} disabled={isLoading}/></FormControl> {hasAttemptedSubmit && form.formState.errors.contactRole && <FormMessage />} </FormItem> )}/>
+                <FormField control={form.control} name="contactName" render={({ field }) => ( <FormItem> <FormLabel>Nombre del Contacto</FormLabel> <FormControl><Input placeholder="María García" {...field} disabled={isLoading}/></FormControl> <FormMessage /> </FormItem> )}/>
+                <FormField control={form.control} name="contactRole" render={({ field }) => ( <FormItem> <FormLabel>Cargo del Contacto</FormLabel> <FormControl><Input placeholder="Responsable de RRHH" {...field} disabled={isLoading}/></FormControl> <FormMessage /> </FormItem> )}/>
             </div>
-             <FormField control={form.control} name="contactEmail" render={({ field }) => ( <FormItem> <FormLabel>Correo Electrónico de Contacto</FormLabel> <FormControl><Input type="email" placeholder="rrhh@empresa.com" {...field} disabled={isLoading}/></FormControl> {hasAttemptedSubmit && form.formState.errors.contactEmail && <FormMessage />} </FormItem> )}/>
-             <FormField control={form.control} name="contactPhone" render={({ field }) => ( <FormItem> <FormLabel>Teléfono de Contacto (Opcional)</FormLabel> <FormControl><Input type="tel" placeholder="+54 9 11 1234-5678" {...field} disabled={isLoading}/></FormControl> {hasAttemptedSubmit && form.formState.errors.contactPhone && <FormMessage />} </FormItem> )}/>
+             <FormField control={form.control} name="contactEmail" render={({ field }) => ( <FormItem> <FormLabel>Correo Electrónico de Contacto</FormLabel> <FormControl><Input type="email" placeholder="rrhh@empresa.com" {...field} disabled={isLoading}/></FormControl> <FormMessage /> </FormItem> )}/>
+             <FormField control={form.control} name="contactPhone" render={({ field }) => ( <FormItem> <FormLabel>Teléfono de Contacto (Opcional)</FormLabel> <FormControl><Input type="tel" placeholder="+54 9 11 1234-5678" {...field} disabled={isLoading}/></FormControl> <FormMessage /> </FormItem> )}/>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Fingerprint className="mr-2 h-4 w-4" />}
@@ -481,8 +460,8 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
                   <FormControl>
                     <Input placeholder="******" {...field} disabled={isLoading} maxLength={6} />
                   </FormControl>
-                  {/* Show message only if there was an attempt and an error exists */}
-                  {hasAttemptedSubmit && form.formState.errors.verificationCode && <FormMessage />}
+                  {/* FormMessage handles validation errors */}
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -516,8 +495,8 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
                   <FormControl>
                     <Input type="password" placeholder="********" {...field} disabled={isLoading} />
                   </FormControl>
-                   {/* Show message only if there was an attempt and an error exists */}
-                  {hasAttemptedSubmit && form.formState.errors.password && <FormMessage />}
+                   {/* FormMessage handles validation errors */}
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -530,8 +509,8 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
                   <FormControl>
                     <Input type="password" placeholder="********" {...field} disabled={isLoading} />
                   </FormControl>
-                    {/* Show message only if there was an attempt and an error exists */}
-                  {hasAttemptedSubmit && form.formState.errors.confirmPassword && <FormMessage />}
+                    {/* FormMessage handles validation errors */}
+                  <FormMessage />
                 </FormItem>
               )}
             />

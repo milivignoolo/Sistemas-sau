@@ -185,6 +185,13 @@ const stepFourSchema = z.object({
   path: ['confirmPassword'],
 });
 
+// Combine all possible form data types
+type StudentFormData = z.infer<typeof stepOneSchema> &
+                       Partial<z.infer<typeof stepTwoSchema>> &
+                       Partial<z.infer<typeof stepThreeSchema>> &
+                       Partial<z.infer<typeof stepFourSchema>>;
+
+
 // --- Component Logic ---
 type Step = 'initial' | 'verify' | 'profile' | 'password' | 'complete' | 'error';
 
@@ -228,7 +235,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
     }
   };
 
-  const form = useForm<any>({
+  const form = useForm<StudentFormData>({ // Use the combined type
     resolver: zodResolver(getCurrentSchema()), // Initialize with the first step's schema
     defaultValues: { // Always start with empty default values
       universityId: '',
@@ -250,7 +257,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
   const handleStepOneSubmit = async (values: z.infer<typeof stepOneSchema>) => {
     setIsLoading(true);
     setErrorMessage(null);
-    setHasAttemptedSubmit(true); // Mark attempt for this step
+    // setHasAttemptedSubmit(true); // Set attempt flag on handler start
     try {
       const data = await fetchSysacadData(values.universityId, values.dni);
       // Store data temporarily in component state
@@ -261,6 +268,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       setHasAttemptedSubmit(false); // Reset submit attempt flag for the next step
     } catch (error: any) {
       setErrorMessage(error.message || 'Ocurrió un error.');
+       setHasAttemptedSubmit(true); // Set attempt flag on error
        if (error.message.includes('Sysacad')) {
            form.setError("universityId", { type: "manual", message: error.message });
            form.setError("dni", { type: "manual", message: error.message });
@@ -280,7 +288,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
      }
     setIsLoading(true);
     setErrorMessage(null);
-    setHasAttemptedSubmit(true); // Mark attempt
+    // setHasAttemptedSubmit(true); // Set attempt flag on handler start
     try {
       await verifyCode(tempStudentData.email, values.verificationCode);
       toast({ title: 'Correo Verificado', description: 'Tu identidad ha sido verificada.', variant: 'default' });
@@ -288,6 +296,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       setHasAttemptedSubmit(false); // Reset submit attempt flag
     } catch (error: any) {
       setErrorMessage(error.message || 'Ocurrió un error.');
+       setHasAttemptedSubmit(true); // Set attempt flag on error
        form.setError("verificationCode", { type: "manual", message: error.message || 'Código incorrecto.' });
     } finally {
       setIsLoading(false);
@@ -313,7 +322,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
      }
      setIsLoading(true);
      setErrorMessage(null);
-     setHasAttemptedSubmit(true); // Mark attempt
+     // setHasAttemptedSubmit(true); // Set attempt flag on handler start
      try {
         const finalUserData = {
             ...tempStudentData, // Data from Sysacad (step 1)
@@ -327,73 +336,50 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
         onRegisterSuccess(); // Callback to parent to handle redirect
      } catch (error: any) {
         setErrorMessage(error.message || 'No se pudo crear la cuenta.');
+         setHasAttemptedSubmit(true); // Set attempt flag on error
         setStep('error');
      } finally {
         setIsLoading(false);
      }
   };
 
-  // Main submit handler
- const onSubmit = async (values: any) => {
-    // Prevent submission if already completed or in error state
-    if (step === 'complete' || step === 'error') {
-        console.log('Submission blocked, current step:', step);
-        return;
-    }
+  // Main submit handler - uses react-hook-form's handleSubmit
+  const onSubmit = async (values: StudentFormData) => {
+     // Prevent submission if already completed or in error state
+     if (step === 'complete' || step === 'error' || isLoading) {
+         console.log('Submission blocked, current step:', step, 'isLoading:', isLoading);
+         return;
+     }
 
-    // Mark that a submit attempt has been made for the current step
-    // This is now handled within each step handler to control error message display precisely
-    // setHasAttemptedSubmit(true);
+     // Reset error message for the current step attempt
+     setErrorMessage(null);
+     setHasAttemptedSubmit(true); // Mark attempt for UI feedback
 
-    const currentSchema = getCurrentSchema();
+     switch (step) {
+        case 'initial': await handleStepOneSubmit(values as z.infer<typeof stepOneSchema>); break;
+        case 'verify': await handleStepTwoSubmit(values as z.infer<typeof stepTwoSchema>); break;
+        case 'profile': await handleStepThreeSubmit(values as z.infer<typeof stepThreeSchema>); break;
+        case 'password': await handleStepFourSubmit(values as z.infer<typeof stepFourSchema>); break;
+        default: console.log('Unhandled step in onSubmit:', step);
+     }
+   };
 
-    // Check if the current schema is valid before proceeding
-    if (!currentSchema || !currentSchema.shape || Object.keys(currentSchema.shape || {}).length === 0) {
-        console.error('Invalid or empty schema for current step:', step);
-        if (['initial', 'verify', 'profile', 'password'].includes(step)) {
-             toast({
-                title: 'Error Interno',
-                description: 'No se pudo procesar este paso.',
-                variant: 'destructive',
-             });
-        }
-        return;
-    }
+   // Error handler for react-hook-form's handleSubmit
+   const onFormError = (errors: any) => {
+       console.error("Form validation failed:", errors);
+       setHasAttemptedSubmit(true); // Ensure error messages are shown
 
-    // Use zodResolver's parse to validate against the current schema
-    // Trigger validation manually to check if the current form state is valid against the schema
-    const fieldsToValidate = Object.keys(currentSchema.shape) as (keyof typeof values)[];
-    const isValid = await form.trigger(fieldsToValidate); // Validate only the fields for the current step
+       // Find the first error message to display in toast
+       const firstErrorField = Object.keys(errors)[0];
+       const firstErrorMessage = firstErrorField ? errors[firstErrorField]?.message : 'Por favor, corrige los errores marcados.';
 
+       toast({
+           title: 'Error de Validación',
+           description: typeof firstErrorMessage === 'string' ? firstErrorMessage : 'Error desconocido.',
+           variant: 'destructive',
+       });
+   };
 
-     if (!isValid) {
-        console.error("Validation failed for step:", step, form.formState.errors);
-        // Errors will be shown by FormMessage components due to resolver
-        const firstErrorField = Object.keys(currentSchema.shape).find(field => form.formState.errors[field as keyof typeof values]);
-        const firstErrorMessage = firstErrorField ? form.formState.errors[firstErrorField as keyof typeof values]?.message : 'Por favor, corrige los errores marcados.';
-        toast({
-            title: 'Error de Validación',
-            description: typeof firstErrorMessage === 'string' ? firstErrorMessage : 'Error desconocido.',
-            variant: 'destructive',
-        });
-        setHasAttemptedSubmit(true); // Set attempt flag only when validation fails on submit
-        return; // Stop if validation fails
-    }
-
-    // If validation passes, proceed with the appropriate handler
-    const validatedValues = currentSchema.parse(form.getValues()); // Parse the valid values
-
-    // Reset attempt flag before calling handler, handler will set it if needed on error
-    // setHasAttemptedSubmit(false); // Let handlers manage this
-
-    switch (step) {
-      case 'initial': await handleStepOneSubmit(validatedValues as z.infer<typeof stepOneSchema>); break;
-      case 'verify': await handleStepTwoSubmit(validatedValues as z.infer<typeof stepTwoSchema>); break;
-      case 'profile': await handleStepThreeSubmit(validatedValues as z.infer<typeof stepThreeSchema>); break;
-      case 'password': await handleStepFourSubmit(validatedValues as z.infer<typeof stepFourSchema>); break;
-      default: console.log('Unhandled step in onSubmit:', step);
-    }
-  };
 
    // Update resolver when step changes
    useEffect(() => {
@@ -403,7 +389,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
 
     // Reset form fields relevant to the *next* step, keep others for potential back navigation?
     // NO - Always reset to default empty state when step changes
-    form.reset({
+    form.reset({ // Reset to defaults matching StudentFormData structure
       universityId: '',
       dni: '',
       verificationCode: '',
@@ -414,7 +400,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       languages: {},
       password: '',
       confirmPassword: '',
-    });
+    }, { keepErrors: false, keepDirty: false, keepValues: false }); // Ensure full reset
 
 
     setHasAttemptedSubmit(false); // Reset submit attempt flag when step changes
@@ -429,10 +415,12 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      {/* Use react-hook-form's handleSubmit to handle validation */}
+      <form onSubmit={form.handleSubmit(onSubmit, onFormError)} className="space-y-6">
 
         {/* Show global error message only if it exists AND an attempt was made */}
-        {hasAttemptedSubmit && errorMessage && (
+        {/* Let individual field errors handle validation, use this for API errors */}
+        {errorMessage && ( // Simplified: Show if there's a backend/API error message
           <Alert variant="destructive">
              <Info className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
@@ -467,8 +455,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                   <FormControl>
                     <Input placeholder="12345" {...field} disabled={isLoading} />
                   </FormControl>
-                  {/* Show message only if there was an attempt and an error exists */}
-                   {hasAttemptedSubmit && form.formState.errors.universityId && <FormMessage />}
+                  {/* FormMessage handles validation errors */}
+                   <FormMessage />
                 </FormItem>
               )}
             />
@@ -482,8 +470,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                     <Input placeholder="30123456" {...field} disabled={isLoading} />
                   </FormControl>
                    <FormDescription>Ingresa tu DNI sin puntos.</FormDescription>
-                    {/* Show message only if there was an attempt and an error exists */}
-                   {hasAttemptedSubmit && form.formState.errors.dni && <FormMessage />}
+                   {/* FormMessage handles validation errors */}
+                   <FormMessage />
                 </FormItem>
               )}
             />
@@ -513,8 +501,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                   <FormControl>
                     <Input placeholder="******" {...field} disabled={isLoading} maxLength={6} />
                   </FormControl>
-                  {/* Show message only if there was an attempt and an error exists */}
-                   {hasAttemptedSubmit && form.formState.errors.verificationCode && <FormMessage />}
+                  {/* FormMessage handles validation errors */}
+                   <FormMessage />
                 </FormItem>
               )}
             />
@@ -553,7 +541,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                     <Input placeholder="Ej: Lunes a Viernes, 4hs diarias por la tarde" {...field} />
                   </FormControl>
                    {/* No message needed for optional field unless it has specific validation */}
-                  {hasAttemptedSubmit && form.formState.errors.availability && <FormMessage />}
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -598,7 +586,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                     <Textarea placeholder="Describe brevemente proyectos personales, trabajos anteriores o voluntariados relevantes." {...field} />
                   </FormControl>
                    {/* No message needed for optional field */}
-                    {hasAttemptedSubmit && form.formState.errors.previousExperience && <FormMessage />}
+                    <FormMessage />
                 </FormItem>
               )}
             />
@@ -632,8 +620,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                   <FormControl>
                     <Input type="password" placeholder="********" {...field} disabled={isLoading} />
                   </FormControl>
-                   {/* Show message only if there was an attempt and an error exists */}
-                  {hasAttemptedSubmit && form.formState.errors.password && <FormMessage />}
+                   {/* FormMessage handles validation errors */}
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -646,8 +634,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
                   <FormControl>
                     <Input type="password" placeholder="********" {...field} disabled={isLoading} />
                   </FormControl>
-                   {/* Show message only if there was an attempt and an error exists */}
-                  {hasAttemptedSubmit && form.formState.errors.confirmPassword && <FormMessage />}
+                   {/* FormMessage handles validation errors */}
+                  <FormMessage />
                 </FormItem>
               )}
             />
