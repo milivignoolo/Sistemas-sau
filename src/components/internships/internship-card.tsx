@@ -2,12 +2,13 @@
 import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MapPin, Briefcase, GraduationCap, CalendarDays, ArrowRight, Target, Ban } from 'lucide-react';
+import { MapPin, Briefcase, GraduationCap, CalendarDays, ArrowRight, Target, Ban, CheckSquare } from 'lucide-react'; // Added CheckSquare
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge'; // Import Badge
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip
 import { useToast } from '@/hooks/use-toast'; // Import useToast
-
+import React, { useState, useEffect } from 'react'; // Import useState, useEffect
+import { safeLocalStorageGet, safeLocalStorageSet } from '@/lib/local-storage'; // Import safe localStorage functions
 
 // Update the type for the internship prop to include matchScore
 export interface InternshipWithMatch {
@@ -25,9 +26,14 @@ export interface InternshipWithMatch {
   // Add requirements if needed for display, though detailed view is better
 }
 
+interface StudentProfile { // Simplified profile needed for apply logic
+    username: string;
+    appliedInternships?: string[];
+}
+
 interface InternshipCardProps {
   internship: InternshipWithMatch;
-  canApply: boolean; // Added prop to control application button state
+  canApply: boolean; // Added prop to control application eligibility
 }
 
 // Helper to determine badge color based on score
@@ -37,8 +43,31 @@ const getMatchScoreVariant = (score: number): "default" | "secondary" | "destruc
     return "default"; // High/Perfect match (using primary color)
 }
 
+// --- Mock Email Sending Function ---
+async function sendConfirmationEmail(email: string, internshipTitle: string, companyName: string) {
+    // In a real app, this would call an API endpoint to send the email
+    console.log(`Simulating sending confirmation email to ${email} for applying to "${internshipTitle}" at ${companyName}`);
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+    return { success: true };
+}
+
+
 export function InternshipCard({ internship, canApply }: InternshipCardProps) {
    const { toast } = useToast(); // Initialize toast
+   const [hasApplied, setHasApplied] = useState(false);
+   const [isLoadingProfile, setIsLoadingProfile] = useState(true); // Loading state for profile check
+
+    useEffect(() => {
+        // Check application status on mount and when internship changes
+        const profileData = safeLocalStorageGet('userProfile');
+        if (profileData && profileData.userType === 'student') {
+            setHasApplied(profileData.appliedInternships?.includes(internship.id) || false);
+        } else {
+            setHasApplied(false); // Not logged in or not a student
+        }
+        setIsLoadingProfile(false);
+    }, [internship.id]); // Dependency on internship.id
+
    const formattedDate = internship.postedDate.toLocaleDateString('es-AR', {
     day: 'numeric',
     month: 'short',
@@ -51,16 +80,83 @@ export function InternshipCard({ internship, canApply }: InternshipCardProps) {
         scoreVariant === "secondary" ? "Coincidencia Media (50-89%)" :
         "Coincidencia Alta (90-100%)";
 
-    const handleApplyClick = () => {
-        // Mock application success
-         toast({
-            title: '¡Postulación Exitosa!',
-            description: `Te has postulado a la pasantía "${internship.title}" en ${internship.company}.`,
-            variant: 'success',
-        });
-        // In a real app, you would make an API call here
-        console.log(`Applying to internship ${internship.id}`);
+    const handleApplyClick = async () => {
+        if (isLoadingProfile) return; // Prevent action while checking profile
+
+        const profileData: StudentProfile | null = safeLocalStorageGet('userProfile');
+
+        if (!profileData || profileData.userType !== 'student') {
+            toast({
+                title: "Acción no permitida",
+                description: "Debes iniciar sesión como estudiante para postularte.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        if (hasApplied) {
+            toast({
+                title: "Ya Postulado",
+                description: "Ya te has postulado a esta pasantía.",
+                variant: "info",
+            });
+            return;
+        }
+
+        if (!canApply) {
+            toast({
+                title: "Requisitos no Cumplidos",
+                description: "Tu perfil no cumple los requisitos mínimos (coincidencia < 50%).",
+                variant: "warning", // Changed to warning
+            });
+            return;
+        }
+
+        // --- Apply Logic ---
+         try {
+             // 1. Update Student Profile in localStorage
+             const updatedProfile = {
+                 ...profileData,
+                 appliedInternships: [...(profileData.appliedInternships || []), internship.id],
+             };
+             safeLocalStorageSet('userProfile', updatedProfile);
+             setHasApplied(true); // Update application status state
+
+             // 2. Send Confirmation Email (Mock)
+             const studentEmail = `${profileData.username}@utn.edu.ar`; // Mock email
+             await sendConfirmationEmail(studentEmail, internship.title, internship.company);
+
+             // 3. Show Success Toast
+             toast({
+                title: '¡Postulación Exitosa!',
+                description: `Te has postulado a "${internship.title}". Se envió una confirmación a tu correo.`,
+                variant: 'success',
+             });
+
+             // 4. In a real app, make API call here to record application in backend
+             console.log(`Applying to internship ${internship.id} as ${profileData.username}`);
+
+         } catch (error) {
+             console.error("Error during application process:", error);
+             toast({
+                title: "Error al Postularse",
+                description: "Ocurrió un error al procesar tu postulación.",
+                variant: "destructive",
+             });
+              // Optional: Revert state if needed
+              // setHasApplied(false);
+              // Remove internship.id from localStorage profile
+         }
     };
+
+  // Determine button text, icon, and tooltip based on application status and eligibility
+   const buttonText = hasApplied ? 'Aplicado' : 'Aplicar';
+   const buttonIcon = hasApplied ? <CheckSquare className="ml-1 size-4" /> : (canApply ? <ArrowRight className="ml-1 size-4" /> : <Ban className="ml-1 size-4" />);
+   const tooltipText =
+        hasApplied ? "Ya te has postulado a esta pasantía." :
+        canApply ? "Postularse a esta pasantía." :
+        "Tu perfil no cumple los requisitos mínimos (coincidencia < 50%).";
+    const isDisabled = !canApply || hasApplied || isLoadingProfile;
 
 
   return (
@@ -127,29 +223,23 @@ export function InternshipCard({ internship, canApply }: InternshipCardProps) {
             </Link>
             {/* Conditional Apply Button */}
              <TooltipProvider>
-                 <Tooltip delayDuration={canApply ? 500 : 100}>
+                 <Tooltip delayDuration={100}>
                      <TooltipTrigger asChild>
                         {/* Wrap the button in a div when disabled for Tooltip to work correctly */}
-                        <div className={!canApply ? 'cursor-not-allowed' : ''}>
+                        <div className={isDisabled && !hasApplied ? 'cursor-not-allowed' : ''}>
                             <Button
                                 size="sm"
-                                variant="default"
-                                disabled={!canApply}
-                                // className={!canApply ? 'pointer-events-none' : ''} // Prevent clicks if disabled
-                                onClick={handleApplyClick} // Use the new handler
+                                variant={hasApplied ? "success" : "default"} // Use success variant if applied
+                                disabled={isDisabled}
+                                className={`${isDisabled && !hasApplied ? 'pointer-events-none opacity-60' : ''} ${hasApplied ? 'bg-green-600 hover:bg-green-700 pointer-events-none' : ''}`} // Added applied styles
+                                onClick={handleApplyClick}
                             >
-                                {canApply ? (
-                                     <>Aplicar <ArrowRight className="ml-1 size-4" /></>
-                                ) : (
-                                     <>Aplicar <Ban className="ml-1 size-4" /></>
-                                )}
+                                {buttonText} {buttonIcon}
                             </Button>
                         </div>
                      </TooltipTrigger>
                      <TooltipContent side="top">
-                         {canApply
-                            ? <p>Postularse a esta pasantía.</p>
-                            : <p>Tu perfil no cumple los requisitos mínimos (coincidencia {'<'} 50%).</p>}
+                         <p>{tooltipText}</p>
                      </TooltipContent>
                  </Tooltip>
              </TooltipProvider>

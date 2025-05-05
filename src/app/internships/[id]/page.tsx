@@ -196,6 +196,17 @@ const safeLocalStorageGet = (key: string) => {
     }
 };
 
+const safeLocalStorageSet = (key: string, value: any) => {
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+            console.error(`Error setting localStorage key “${key}”:`, error);
+        }
+    }
+};
+
+
 interface StudentProfile {
     username: string;
     career: string;
@@ -204,7 +215,8 @@ interface StudentProfile {
         technicalSkills?: { [key: string]: string };
         softSkills?: { [key: string]: string };
         languages?: { [key: string]: string };
-    }
+    };
+    appliedInternships?: string[]; // Array of applied internship IDs
 }
 
 const calculateMatchScore = (student: StudentProfile | null, internship: InternshipDetailData | undefined): number => {
@@ -253,6 +265,14 @@ const calculateMatchScore = (student: StudentProfile | null, internship: Interns
 };
 
 
+// --- Mock Email Sending Function ---
+async function sendConfirmationEmail(email: string, internshipTitle: string, companyName: string) {
+    // In a real app, this would call an API endpoint to send the email
+    console.log(`Simulating sending confirmation email to ${email} for applying to "${internshipTitle}" at ${companyName}`);
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+    return { success: true };
+}
+
 // --- Component ---
 interface InternshipDetailPageProps {
   params: { id: string };
@@ -263,25 +283,34 @@ export default function InternshipDetailPage({ params }: InternshipDetailPagePro
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
   const [matchScore, setMatchScore] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasApplied, setHasApplied] = useState(false); // State to track application status
   const { toast } = useToast(); // Initialize toast
 
   useEffect(() => {
     // Fetch student profile from localStorage on client side
     const profileData = safeLocalStorageGet('userProfile');
     if (profileData && profileData.userType === 'student') {
-         // Map stored data to StudentProfile structure if needed, or assume it matches
+         // Map stored data to StudentProfile structure, ensuring appliedInternships is initialized
          const mappedProfile: StudentProfile = {
              username: profileData.username,
              career: profileData.career, // Assuming career ID is stored directly
              currentYear: profileData.currentYear || 0, // Or fetch from profile if available
              profile: profileData.profile || {}, // Get nested profile data
+             appliedInternships: profileData.appliedInternships || [], // Initialize if missing
          };
         setStudentProfile(mappedProfile);
         const score = calculateMatchScore(mappedProfile, internship);
         setMatchScore(score);
+         // Check if already applied
+         if (internship && mappedProfile.appliedInternships?.includes(internship.id)) {
+             setHasApplied(true);
+         } else {
+             setHasApplied(false);
+         }
     } else {
         setStudentProfile(null);
         setMatchScore(0); // No profile, no match
+        setHasApplied(false); // Cannot apply if not logged in
     }
     setIsLoading(false);
   }, [params.id, internship]); // Re-run if ID or internship data changes
@@ -316,8 +345,8 @@ export default function InternshipDetailPage({ params }: InternshipDetailPagePro
         scoreVariant === "secondary" ? "Coincidencia Media (50-89%)" :
         "Coincidencia Alta (90-100%)";
 
-  const handleApplyClick = () => {
-    if (!studentProfile) {
+   const handleApplyClick = async () => {
+    if (!studentProfile || !internship) {
          toast({
             title: "Inicio de Sesión Requerido",
             description: "Debes iniciar sesión como estudiante para postularte.",
@@ -325,15 +354,73 @@ export default function InternshipDetailPage({ params }: InternshipDetailPagePro
         });
         return;
     }
-    // Mock application success
-     toast({
-        title: '¡Postulación Exitosa!',
-        description: `Te has postulado a la pasantía "${internship.title}" en ${internship.company}.`,
-        variant: 'success',
-    });
-    // In a real app, you would make an API call here
-    // console.log(`Applying to internship ${internship.id} as ${studentProfile.username}`);
+
+     // Check if already applied
+     if (hasApplied) {
+         toast({
+            title: "Ya Postulado",
+            description: "Ya te has postulado a esta pasantía anteriormente.",
+            variant: "info", // Use info variant
+        });
+        return;
+     }
+
+     // Check eligibility again just in case
+     if (!canApply) {
+         toast({
+            title: "No Cumples los Requisitos",
+            description: "Tu perfil no cumple los requisitos mínimos para postularte.",
+            variant: "destructive",
+        });
+        return;
+     }
+
+     // --- Apply Logic ---
+     try {
+         // 1. Update Student Profile in localStorage
+         const updatedProfile = {
+             ...studentProfile,
+             appliedInternships: [...(studentProfile.appliedInternships || []), internship.id],
+         };
+         safeLocalStorageSet('userProfile', updatedProfile);
+         setStudentProfile(updatedProfile); // Update local state
+         setHasApplied(true); // Update application status state
+
+         // 2. Send Confirmation Email (Mock)
+         // Assuming student email is available in profileData or can be derived
+         const studentEmail = `${studentProfile.username}@utn.edu.ar`; // Mock email
+         await sendConfirmationEmail(studentEmail, internship.title, internship.company);
+
+         // 3. Show Success Toast
+         toast({
+            title: '¡Postulación Exitosa!',
+            description: `Te has postulado a la pasantía "${internship.title}" en ${internship.company}. Se envió una confirmación a tu correo.`,
+            variant: 'success',
+         });
+
+         // 4. In a real app, make API call here to record application in backend
+         console.log(`Applying to internship ${internship.id} as ${studentProfile.username}`);
+
+     } catch (error) {
+         console.error("Error during application process:", error);
+         toast({
+            title: "Error al Postularse",
+            description: "Ocurrió un error al procesar tu postulación. Inténtalo de nuevo.",
+            variant: "destructive",
+         });
+          // Optional: Revert state if needed (e.g., remove internship ID from applied list)
+     }
   };
+
+  // Update button text and tooltip based on application status
+   const buttonText = hasApplied ? 'Ya Postulado' : 'Postularse Ahora';
+   const buttonIcon = hasApplied ? <CheckSquare className="ml-1 size-4" /> : (canApply ? <ArrowRight className="ml-1 size-4" /> : <Ban className="ml-1 size-4" />);
+   const tooltipText =
+        !studentProfile ? "Inicia sesión como estudiante para postularte." :
+        hasApplied ? "Ya te has postulado a esta pasantía." :
+        canApply ? "Postularse a esta pasantía." :
+        "Tu perfil no cumple los requisitos mínimos (coincidencia < 50%).";
+
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -380,30 +467,21 @@ export default function InternshipDetailPage({ params }: InternshipDetailPagePro
                  {/* Apply Button Section */}
                  <div className="w-full md:w-auto flex-shrink-0">
                      <TooltipProvider>
-                         <Tooltip delayDuration={canApply ? 500 : 100}>
+                         <Tooltip delayDuration={100}>
                              <TooltipTrigger asChild>
-                                <div className={!canApply ? 'cursor-not-allowed' : ''}>
+                                <div className={!canApply && !hasApplied ? 'cursor-not-allowed' : ''}>
                                      <Button
                                         size="lg"
-                                        className={`w-full md:w-auto ${!canApply ? 'pointer-events-none opacity-60' : ''}`} // Disable visually and functionally
-                                        disabled={!canApply || !studentProfile} // Disable if cannot apply or no student profile
+                                        className={`w-full md:w-auto ${!canApply && !hasApplied ? 'pointer-events-none opacity-60' : ''} ${hasApplied ? 'bg-green-600 hover:bg-green-700 pointer-events-none' : ''}`} // Disable visually and functionally if cannot apply or already applied
+                                        disabled={!canApply || !studentProfile || hasApplied} // Disable if cannot apply, no student profile, or already applied
                                         onClick={handleApplyClick} // Use the new handler
                                     >
-                                        {canApply ? (
-                                            <>Postularse Ahora <ArrowRight className="ml-1 size-4" /></>
-                                        ) : (
-                                            <>Postularse Ahora <Ban className="ml-1 size-4" /></>
-                                        )}
+                                        {buttonText} {buttonIcon}
                                     </Button>
                                  </div>
                              </TooltipTrigger>
                              <TooltipContent side="top">
-                                 {!studentProfile
-                                    ? <p>Inicia sesión como estudiante para postularte.</p>
-                                    : canApply
-                                        ? <p>Postularse a esta pasantía.</p>
-                                        : <p>Tu perfil no cumple los requisitos mínimos (coincidencia {'<'} 50%).</p>
-                                 }
+                                 <p>{tooltipText}</p>
                              </TooltipContent>
                          </Tooltip>
                      </TooltipProvider>

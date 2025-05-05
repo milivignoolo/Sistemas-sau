@@ -37,6 +37,17 @@ const safeLocalStorageGet = (key: string) => {
     return null;
 };
 
+const safeLocalStorageSet = (key: string, value: any) => {
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+            console.error(`Error setting localStorage key “${key}”:`, error);
+        }
+    }
+};
+
+
 // --- Mock Authentication Function ---
 // Mock Student Profile structure (align with registration form for match score)
 interface StudentProfile {
@@ -49,7 +60,8 @@ interface StudentProfile {
         technicalSkills?: { [key: string]: string }; // { 'react': 'Intermedio', ... }
         softSkills?: { [key: string]: string };
         languages?: { [key: string]: string };
-    }
+    };
+    appliedInternships?: string[]; // Added: Array of applied internship IDs
 }
 
 interface CompanyProfile {
@@ -69,6 +81,7 @@ async function authenticateUser(username: string, password: string): Promise<{ s
   let foundProfile: StudentProfile | CompanyProfile | null = null;
 
   // --- MOCK USER CHECK (Prioritized for Testing) ---
+  // Ensure mock student has appliedInternships array
   const validStudent: StudentProfile = {
       username: '12345',
       password: 'password123',
@@ -79,10 +92,12 @@ async function authenticateUser(username: string, password: string): Promise<{ s
           technicalSkills: { javascript: 'Intermedio', react: 'Básico', git: 'Intermedio', nodejs: 'Básico' },
           softSkills: { teamwork: 'Desarrollado', communication: 'Fuerte', learning: 'Fuerte' },
           languages: { english: 'Intermedio (B1/B2)' },
-      }
+      },
+      appliedInternships: [], // Initialize empty array
   };
+   // Ensure mock company username matches the one used for testing
   const validCompany: CompanyProfile = {
-      username: '12345678901', // CUIT without dashes
+      username: '30123456789', // CUIT without dashes - Corrected CUIT
       password: 'password123',
       userType: 'company',
       companyName: 'Tecno Soluciones S.A. (Mock)' // Example name
@@ -125,6 +140,10 @@ async function authenticateUser(username: string, password: string): Promise<{ s
           if (normalizedStoredUsername === normalizedInputUsername && storedUserProfile.password === password) {
               isAuthenticated = true;
               userType = storedUserProfile.userType as 'student' | 'company';
+              // Make sure appliedInternships is initialized if missing from stored profile
+              if (userType === 'student' && !storedUserProfile.appliedInternships) {
+                  storedUserProfile.appliedInternships = [];
+              }
               foundProfile = storedUserProfile; // Use the stored profile
               console.log("Credentials match stored localStorage profile!");
           } else {
@@ -143,10 +162,14 @@ async function authenticateUser(username: string, password: string): Promise<{ s
     const profileToSave = { ...foundProfile };
     delete profileToSave.password;
 
-    if (typeof window !== 'undefined') {
-        localStorage.setItem('userProfile', JSON.stringify(profileToSave));
-        console.log("Saved found profile (without password) to localStorage.");
-    }
+     // Ensure appliedInternships is an array when saving student profile
+     if (profileToSave.userType === 'student' && !Array.isArray(profileToSave.appliedInternships)) {
+        profileToSave.appliedInternships = [];
+     }
+
+    safeLocalStorageSet('userProfile', profileToSave);
+    console.log("Saved found profile (without password) to localStorage:", profileToSave);
+
     return { success: true, userType: userType, username: username };
   } else {
     console.error(`Authentication failed for user: ${username}.`); // This log will still appear if both mock and stored fail
