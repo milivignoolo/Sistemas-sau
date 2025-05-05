@@ -6,6 +6,7 @@ import { MapPin, Briefcase, GraduationCap, CalendarDays, ArrowRight, Target, Ban
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge'; // Import Badge
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip
+import { useToast } from '@/hooks/use-toast'; // Import useToast
 
 
 // Update the type for the internship prop to include matchScore
@@ -37,6 +38,7 @@ const getMatchScoreVariant = (score: number): "default" | "secondary" | "destruc
 }
 
 export function InternshipCard({ internship, canApply }: InternshipCardProps) {
+   const { toast } = useToast(); // Initialize toast
    const formattedDate = internship.postedDate.toLocaleDateString('es-AR', {
     day: 'numeric',
     month: 'short',
@@ -48,6 +50,17 @@ export function InternshipCard({ internship, canApply }: InternshipCardProps) {
         scoreVariant === "destructive" ? "Coincidencia Baja (<50%)" :
         scoreVariant === "secondary" ? "Coincidencia Media (50-89%)" :
         "Coincidencia Alta (90-100%)";
+
+    const handleApplyClick = () => {
+        // Mock application success
+         toast({
+            title: '¡Postulación Exitosa!',
+            description: `Te has postulado a la pasantía "${internship.title}" en ${internship.company}.`,
+            variant: 'success',
+        });
+        // In a real app, you would make an API call here
+        console.log(`Applying to internship ${internship.id}`);
+    };
 
 
   return (
@@ -123,7 +136,7 @@ export function InternshipCard({ internship, canApply }: InternshipCardProps) {
                                 variant="default"
                                 disabled={!canApply}
                                 // className={!canApply ? 'pointer-events-none' : ''} // Prevent clicks if disabled
-                                onClick={() => console.log(`Applying to internship ${internship.id}`)} // Add actual apply logic
+                                onClick={handleApplyClick} // Use the new handler
                             >
                                 {canApply ? (
                                      <>Aplicar <ArrowRight className="ml-1 size-4" /></>

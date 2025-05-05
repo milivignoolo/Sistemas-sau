@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react'; // Import useState, useEffect
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip
+import { useToast } from '@/hooks/use-toast'; // Import useToast
 
 
 // --- Mock Data (Keep or replace with actual fetching) ---
@@ -262,6 +263,7 @@ export default function InternshipDetailPage({ params }: InternshipDetailPagePro
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
   const [matchScore, setMatchScore] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast(); // Initialize toast
 
   useEffect(() => {
     // Fetch student profile from localStorage on client side
@@ -313,6 +315,25 @@ export default function InternshipDetailPage({ params }: InternshipDetailPagePro
         scoreVariant === "destructive" ? "Coincidencia Baja (<50%)" :
         scoreVariant === "secondary" ? "Coincidencia Media (50-89%)" :
         "Coincidencia Alta (90-100%)";
+
+  const handleApplyClick = () => {
+    if (!studentProfile) {
+         toast({
+            title: "Inicio de Sesión Requerido",
+            description: "Debes iniciar sesión como estudiante para postularte.",
+            variant: "destructive",
+        });
+        return;
+    }
+    // Mock application success
+     toast({
+        title: '¡Postulación Exitosa!',
+        description: `Te has postulado a la pasantía "${internship.title}" en ${internship.company}.`,
+        variant: 'success',
+    });
+    // In a real app, you would make an API call here
+    // console.log(`Applying to internship ${internship.id} as ${studentProfile.username}`);
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -366,14 +387,7 @@ export default function InternshipDetailPage({ params }: InternshipDetailPagePro
                                         size="lg"
                                         className={`w-full md:w-auto ${!canApply ? 'pointer-events-none opacity-60' : ''}`} // Disable visually and functionally
                                         disabled={!canApply || !studentProfile} // Disable if cannot apply or no student profile
-                                        onClick={() => {
-                                            if (!studentProfile) {
-                                                alert("Debes iniciar sesión como estudiante para postularte."); // Or use toast
-                                                return;
-                                            }
-                                            console.log(`Applying to internship ${internship.id} as ${studentProfile.username}`);
-                                            // TODO: Add actual application logic (e.g., API call)
-                                        }}
+                                        onClick={handleApplyClick} // Use the new handler
                                     >
                                         {canApply ? (
                                             <>Postularse Ahora <ArrowRight className="ml-1 size-4" /></>
@@ -474,4 +488,3 @@ export default function InternshipDetailPage({ params }: InternshipDetailPagePro
 //     id: internship.id,
 //   }));
 // }
-
