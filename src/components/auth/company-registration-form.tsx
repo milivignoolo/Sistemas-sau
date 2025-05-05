@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -22,42 +23,9 @@ import { useState, useEffect } from 'react'; // Import useEffect
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, MailCheck, Info, Building, KeyRound, Fingerprint, Link as LinkIcon, Briefcase, User, Home, Globe, Share2, CheckSquare } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '@/lib/local-storage';
 
 // Removed useRouter import as navigation is handled by the parent via onRegisterSuccess
-
-// --- Utility Functions for localStorage ---
-const safeLocalStorageGet = (key: string) => {
-    if (typeof window !== 'undefined') {
-        try {
-            const item = localStorage.getItem(key);
-            return item ? JSON.parse(item) : null;
-        } catch (error) {
-            console.error(`Error reading localStorage key “${key}”:`, error);
-            return null;
-        }
-    }
-    return null;
-};
-
-const safeLocalStorageSet = (key: string, value: any) => {
-    if (typeof window !== 'undefined') {
-        try {
-            localStorage.setItem(key, JSON.stringify(value));
-        } catch (error) {
-            console.error(`Error setting localStorage key “${key}”:`, error);
-        }
-    }
-};
-
-const safeLocalStorageRemove = (key: string) => {
-    if (typeof window !== 'undefined') {
-        try {
-            localStorage.removeItem(key);
-        } catch (error) {
-            console.error(`Error removing localStorage key “${key}”:`, error);
-        }
-    }
-};
 
 // --- Mock Verification Functions ---
 async function verifyArcaApi(cuit: string) {
@@ -277,6 +245,7 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
         ...tempCompanyData, // Data from step 1
         password: values.password, // Password from current step (step 4) - HASH THIS SERVER-SIDE
         username: usernameCuit,
+        contactEmail: tempCompanyData.contactEmail, // Ensure contactEmail is saved
     };
 
     try {
@@ -542,3 +511,4 @@ export function CompanyRegistrationForm({ onRegisterSuccess }: CompanyRegistrati
     </Form>
   );
 }
+

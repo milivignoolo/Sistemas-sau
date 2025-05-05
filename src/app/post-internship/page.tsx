@@ -28,21 +28,18 @@ import { Briefcase, Clock, Hash, CalendarDays, ListChecks, UserCheck, AlertTrian
 import { Separator } from '@/components/ui/separator';
 import { SkillCheckboxGroup } from '@/components/auth/skill-checkbox-group'; // Import the reusable component
 import Link from 'next/link'; // Import Link for redirect button
+import { safeLocalStorageGet } from '@/lib/local-storage'; // Import safe function
 
 // --- Mock Authentication (Replace with real auth logic) ---
-// Function to safely interact with localStorage (runs only on client)
-const safeLocalStorageGet = (key: string) => {
-    if (typeof window === 'undefined') {
-        return null;
-    }
-    try {
-        const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : null;
-    } catch (error) {
-        console.error(`Error reading localStorage key “${key}”:`, error);
-        return null;
-    }
-};
+// Removed safeLocalStorageGet as it's now imported
+
+// --- Mock Email Sending Function ---
+async function sendVerificationPendingEmail(email: string, internshipTitle: string, companyName: string) {
+    // In a real app, this would call an API endpoint to send the email
+    console.log(`Simulating sending verification pending email to ${email} for internship "${internshipTitle}" from ${companyName}`);
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+    return { success: true };
+}
 
 
 // --- Predefined Lists (Similar to student registration) ---
@@ -158,7 +155,7 @@ const yearOptions = ['any', '1', '2', '3', '4', '5', 'Graduado Reciente'];
 export default function PostInternshipPage() {
   const { toast } = useToast();
   const [isLoadingAuth, setIsLoadingAuth] = React.useState(true);
-  const [userRole, setUserRole] = React.useState<'company' | 'student' | null>(null);
+  const [userProfile, setUserProfile] = React.useState<{ userType: 'company' | 'student' | null, username?: string, companyName?: string, contactEmail?: string } | null>(null);
 
 
   // --- Authorization Check ---
@@ -166,7 +163,7 @@ export default function PostInternshipPage() {
     // This effect runs only on the client after hydration
     const profile = safeLocalStorageGet('userProfile');
     if (profile && profile.userType) {
-      setUserRole(profile.userType);
+      setUserProfile(profile);
     }
     setIsLoadingAuth(false);
   }, []);
@@ -203,7 +200,7 @@ export default function PostInternshipPage() {
    // Define submit handler
   async function onSubmit(values: z.infer<typeof formSchema>) {
     // Ensure user is a company before submitting
-     if (userRole !== 'company') {
+     if (userProfile?.userType !== 'company') {
         toast({
             title: 'Acción no permitida',
             description: 'Solo las empresas pueden publicar pasantías.',
@@ -213,13 +210,22 @@ export default function PostInternshipPage() {
     }
 
     // Get company ID from userProfile (assuming it's stored there)
-    const userProfile = safeLocalStorageGet('userProfile');
     const companyId = userProfile?.username; // Assuming username (CUIT) is the company ID
+    const companyName = userProfile?.companyName || 'Tu Empresa'; // Get company name for email
+    const contactEmail = userProfile?.contactEmail; // Get contact email for confirmation
 
      if (!companyId) {
          toast({
             title: 'Error',
             description: 'No se pudo identificar la empresa. Por favor, inicia sesión de nuevo.',
+            variant: 'destructive',
+         });
+         return;
+     }
+     if (!contactEmail) {
+         toast({
+            title: 'Error',
+            description: 'No se pudo encontrar el email de contacto de la empresa.',
             variant: 'destructive',
          });
          return;
@@ -238,9 +244,24 @@ export default function PostInternshipPage() {
     // Simulate API call to backend to save data with 'pending' status
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
+    // Simulate sending confirmation email
+    try {
+        await sendVerificationPendingEmail(contactEmail, values.title, companyName);
+        console.log(`Verification pending email simulation sent to ${contactEmail}`);
+    } catch (emailError) {
+        console.error("Failed to simulate sending verification pending email:", emailError);
+        // Optionally, inform the user the email might not have sent, but proceed with the main toast
+        toast({
+            title: 'Advertencia',
+            description: 'No se pudo simular el envío del correo de confirmación, pero la pasantía fue enviada.',
+            variant: 'warning', // Use warning variant
+        });
+    }
+
+
     toast({
         title: 'Pasantía Enviada para Verificación',
-        description: 'La oferta de pasantía ha sido enviada y está pendiente de revisión por la SAU. Recibirás una notificación cuando sea aprobada.',
+        description: `La oferta "${values.title}" ha sido enviada y está pendiente de revisión. Se envió una confirmación a ${contactEmail}.`,
         variant: 'default' // Use default variant for pending status
     });
 
@@ -260,7 +281,7 @@ export default function PostInternshipPage() {
   }
 
   // --- Render Access Restricted if not a company ---
-  if (userRole !== 'company') {
+  if (userProfile?.userType !== 'company') {
     return (
         <div className="flex flex-col items-center justify-center h-full mt-10 text-center">
             <Card className="w-full max-w-md p-8">
@@ -524,3 +545,4 @@ export default function PostInternshipPage() {
     </div>
   );
 }
+
