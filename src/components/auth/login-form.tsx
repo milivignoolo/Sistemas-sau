@@ -22,30 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, LogIn, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-
-// --- localStorage Interaction (Client-Side Only) ---
-const safeLocalStorageGet = (key: string) => {
-    if (typeof window !== 'undefined') {
-        try {
-            const item = localStorage.getItem(key);
-            return item ? JSON.parse(item) : null;
-        } catch (error) {
-            console.error(`Error reading localStorage key “${key}”:`, error);
-            return null;
-        }
-    }
-    return null;
-};
-
-const safeLocalStorageSet = (key: string, value: any) => {
-    if (typeof window !== 'undefined') {
-        try {
-            localStorage.setItem(key, JSON.stringify(value));
-        } catch (error) {
-            console.error(`Error setting localStorage key “${key}”:`, error);
-        }
-    }
-};
+import { safeLocalStorageGet, safeLocalStorageSet } from '@/lib/local-storage'; // Import safe functions
 
 
 // --- Mock Authentication Function ---
@@ -72,7 +49,9 @@ interface CompanyProfile {
     // Add other company-specific fields if necessary
 }
 
-async function authenticateUser(username: string, password: string): Promise<{ success: boolean, userType: 'student' | 'company', username: string }> {
+// This function simulates backend authentication.
+// In a real app, this would be an API call.
+async function authenticateUser(username: string, password: string): Promise<{ success: boolean, userType: 'student' | 'company', username: string, profileData: StudentProfile | CompanyProfile }> {
   console.log(`Attempting to authenticate user: ${username} with password: ${password}`);
   await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
@@ -83,7 +62,7 @@ async function authenticateUser(username: string, password: string): Promise<{ s
   // --- MOCK USER CHECK (Prioritized for Testing) ---
   // Ensure mock student has appliedInternships array
   const validStudent: StudentProfile = {
-      username: '12345',
+      username: '12345', // Legajo
       password: 'password123',
       userType: 'student',
       career: 'sistemas', // Match career ID used in internship data
@@ -95,15 +74,16 @@ async function authenticateUser(username: string, password: string): Promise<{ s
       },
       appliedInternships: [], // Initialize empty array
   };
-   // Ensure mock company username matches the one used for testing
+   // Ensure mock company username matches the one used for testing in registration
   const validCompany: CompanyProfile = {
-      username: '30123456789', // CUIT without dashes - Corrected CUIT
+      username: '30123456789', // CUIT without dashes - MATCHES REGISTRATION MOCK
       password: 'password123',
       userType: 'company',
       companyName: 'Tecno Soluciones S.A. (Mock)' // Example name
   };
 
   console.log(`Comparing with MOCK Student: User='${validStudent.username}', Pass='${validStudent.password}'`);
+  // Username from form is already normalized (no dashes for CUIT)
   if (username === validStudent.username && password === validStudent.password) {
     isAuthenticated = true;
     userType = 'student';
@@ -111,14 +91,13 @@ async function authenticateUser(username: string, password: string): Promise<{ s
     console.log("Matched MOCK student user.");
   } else {
       console.log(`Comparing with MOCK Company: User='${validCompany.username}', Pass='${validCompany.password}'`);
-      // Username from form is already normalized (no dashes)
       if (username === validCompany.username && password === validCompany.password) {
         isAuthenticated = true;
         userType = 'company';
         foundProfile = validCompany; // Use mock company data
         console.log("Matched MOCK company user.");
       } else {
-          console.log("Input does not match mock credentials.");
+          console.log("Input does not match MOCK credentials.");
       }
   }
 
@@ -157,20 +136,22 @@ async function authenticateUser(username: string, password: string): Promise<{ s
 
   if (isAuthenticated && (userType === 'student' || userType === 'company') && foundProfile) {
     console.log(`Authentication successful for user: ${username}, Type: ${userType}`);
-    // IMPORTANT: Re-save the found profile to ensure 'userProfile' key is set correctly with all necessary data
-    // Remove password before saving to localStorage for security (even in mocks)
+
+    // Prepare profile data for saving (remove password)
     const profileToSave = { ...foundProfile };
-    delete profileToSave.password;
+    delete profileToSave.password; // Remove password before saving
 
      // Ensure appliedInternships is an array when saving student profile
-     if (profileToSave.userType === 'student' && !Array.isArray(profileToSave.appliedInternships)) {
-        profileToSave.appliedInternships = [];
+     if (profileToSave.userType === 'student' && !Array.isArray((profileToSave as StudentProfile).appliedInternships)) {
+        (profileToSave as StudentProfile).appliedInternships = [];
      }
 
+    // Save the authenticated user's profile (overwrites any existing session)
     safeLocalStorageSet('userProfile', profileToSave);
-    console.log("Saved found profile (without password) to localStorage:", profileToSave);
+    console.log("Saved authenticated profile (without password) to localStorage:", profileToSave);
 
-    return { success: true, userType: userType, username: username };
+    // Return success and profile data (needed for redirect/UI updates)
+    return { success: true, userType: userType, username: username, profileData: profileToSave };
   } else {
     console.error(`Authentication failed for user: ${username}.`); // This log will still appear if both mock and stored fail
     throw new Error('Usuario o contraseña incorrectos.');
@@ -233,14 +214,18 @@ export function LoginForm() {
         });
         setLoginSuccess(true);
 
-        // Redirect based on user type
-        if (result.userType === 'student') {
-          router.push('/internships'); // Redirect student to internships list
-        } else if (result.userType === 'company') {
-           router.push('/post-internship'); // Redirect company to post internship page
-        }
-        // Do not reset form immediately to allow user to see success message
-        // form.reset();
+        // Force a page reload after successful login to update header state reliably
+        // This ensures the header reflects the logged-in user immediately.
+        window.location.href = result.userType === 'student' ? '/internships' : '/post-internship';
+
+
+        // Redirect based on user type (commented out in favor of page reload)
+        // if (result.userType === 'student') {
+        //   router.push('/internships'); // Redirect student to internships list
+        // } else if (result.userType === 'company') {
+        //    router.push('/post-internship'); // Redirect company to post internship page
+        // }
+        // router.refresh(); // Refresh router state - might not be enough for header
       }
       // No explicit else needed because authenticateUser throws on failure
     } catch (error: any) {
@@ -252,6 +237,18 @@ export function LoginForm() {
       setIsLoading(false);
     }
   }
+
+  // Check if user is already logged in on mount (client-side)
+   React.useEffect(() => {
+    const user = safeLocalStorageGet('userProfile');
+    if (user) {
+      // Optional: Display a message or disable the form if already logged in
+      // console.log("User already logged in:", user);
+      // setLoginSuccess(true); // Indicate success state if already logged in
+      // setErrorMessage("Ya has iniciado sesión. Cierra sesión para ingresar con otra cuenta.");
+    }
+  }, []);
+
 
   return (
     <Form {...form}>

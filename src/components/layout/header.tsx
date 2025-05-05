@@ -6,21 +6,8 @@ import { Button } from '@/components/ui/button';
 import { GraduationCap, Briefcase, Building, UserPlus, LogIn, LogOut, User } from 'lucide-react'; // Changed User icon to LogOut, Added User
 import React, { useState, useEffect } from 'react'; // Import useState and useEffect
 import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
+import { safeLocalStorageGet } from '@/lib/local-storage'; // Use safe function
 
-// --- localStorage Interaction (Client-Side Only) ---
-const safeLocalStorageGet = (key: string) => {
-    // This function MUST run only on the client
-    if (typeof window === 'undefined') {
-        return null;
-    }
-    try {
-        const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : null;
-    } catch (error) {
-        console.error(`Error reading localStorage key “${key}”:`, error);
-        return null;
-    }
-};
 
 // Simple user profile type
 interface UserProfile {
@@ -46,8 +33,8 @@ export default function Header() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('userProfile');
       setUserProfile(null);
-      // Redirect to login page after logout
-      window.location.href = '/login';
+      // Redirect to home page after logout for a cleaner flow
+      window.location.href = '/';
     }
   };
 
@@ -122,4 +109,3 @@ export default function Header() {
     </header>
   );
 }
-
