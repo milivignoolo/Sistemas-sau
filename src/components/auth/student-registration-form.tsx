@@ -235,23 +235,8 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
     }
   };
 
-  const form = useForm<StudentFormData>({ // Use the combined type
-    resolver: zodResolver(getCurrentSchema()), // Initialize with the first step's schema
-    defaultValues: { // Always start with empty default values
-      universityId: '',
-      dni: '',
-      verificationCode: '',
-      availability: '',
-      technicalSkills: {},
-      softSkills: {},
-      previousExperience: '',
-      languages: {},
-      password: '',
-      confirmPassword: '',
-    },
-    mode: 'onSubmit', // Validate only on submit initially
-    reValidateMode: 'onChange', // Re-validate on change after the first submit attempt
-  });
+git config --global user.name "Tu Nombre"
+    git config --global user.email "tu.email@example.com"
 
    // Define submit handlers for each step
   const handleStepOneSubmit = async (values: z.infer<typeof stepOneSchema>) => {
