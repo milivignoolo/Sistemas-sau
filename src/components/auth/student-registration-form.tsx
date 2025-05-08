@@ -199,13 +199,13 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       case 'verify': return stepTwoSchema;
       case 'profile': return stepThreeSchema;
       case 'password': return stepFourSchema;
-      default: return z.object({});
+      default: return z.object({}); // Empty schema for non-form steps
     }
   };
 
   const form = useForm<StudentFormData>({
-    resolver: zodResolver(getCurrentSchema()),
-    defaultValues: {
+    resolver: zodResolver(getCurrentSchema()), // Will be updated by useEffect
+    defaultValues: { // Always start with empty defaults
       universityId: '',
       dni: '',
       verificationCode: '',
@@ -217,10 +217,12 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
       password: '',
       confirmPassword: '',
     },
-    mode: 'onSubmit',
-    reValidateMode: 'onChange',
+    mode: 'onSubmit', // Validate only on submit initially
+    reValidateMode: 'onChange', // Re-validate on change after the first submit attempt
   });
 
+
+   // Define submit handlers for each step
   const handleStepOneSubmit = async (values: z.infer<typeof stepOneSchema>) => {
     setIsLoading(true);
     setErrorMessage(null);
@@ -333,9 +335,7 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
   useEffect(() => {
     const currentSchema = getCurrentSchema();
     // @ts-ignore
-    form.resolver = zodResolver(currentSchema); // This way of updating resolver is not standard.
-                                             // It's better to manage different forms or use a conditional resolver logic.
-                                             // For now, keeping as is to focus on the handleSubmit error.
+    form.resolver = zodResolver(currentSchema);
 
     form.reset({
       universityId: '', dni: '', verificationCode: '',
