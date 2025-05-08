@@ -235,9 +235,6 @@ export function StudentRegistrationForm({ onRegisterSuccess }: StudentRegistrati
     }
   };
 
-git config --global user.name "Tu Nombre"
-    git config --global user.email "tu.email@example.com"
-
    // Define submit handlers for each step
   const handleStepOneSubmit = async (values: z.infer<typeof stepOneSchema>) => {
     setIsLoading(true);
