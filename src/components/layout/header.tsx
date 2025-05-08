@@ -82,9 +82,9 @@ export default function Header() {
                      {userProfile.username} {/* Show username */}
                  </span>
                 <Button
-                    variant="outline"
+                    variant="ghost" // Changed variant to ghost for a more subtle look
                     onClick={handleLogout}
-                    className="text-primary-foreground border-primary-foreground/50 hover:bg-primary/90 hover:text-primary-foreground text-xs sm:text-sm px-2 sm:px-3"
+                    className="text-primary-foreground hover:bg-destructive/80 hover:text-destructive-foreground text-xs sm:text-sm px-2 sm:px-3" // Destructive hover effect
                     >
                     <LogOut className="mr-1 size-4" /> Salir
                 </Button>
@@ -98,7 +98,10 @@ export default function Header() {
                 </Button>
               </Link>
                <Link href="/login" passHref>
-                 <Button variant="outline" className="text-primary-foreground border-primary-foreground/50 hover:bg-primary/90 hover:text-primary-foreground text-xs sm:text-sm px-2 sm:px-3">
+                 <Button
+                    variant="default" // Changed variant to default
+                    className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 text-xs sm:text-sm px-2 sm:px-3" // Style for distinct login button
+                 >
                     <LogIn className="mr-1 size-4" /> Ingresar
                  </Button>
                </Link>
