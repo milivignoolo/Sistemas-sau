@@ -1,35 +1,78 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
 
-function App() {
-  const [count, setCount] = useState(0)
+// Importar las páginas
+import Home from './pages/Home';
+import Register from './pages/Register';
+import RegisterEstudiante from './pages/RegisterEstudiante';
+import RegisterEmpresa from './pages/RegisterEmpresa';
+import RegisterAdmin from './pages/RegisterAdmin';
+import Login from './pages/Login';
+
+export default function App() {
+  useEffect(() => {
+    // Simular base de datos inicial en localStorage
+
+    if (!localStorage.getItem('estudiantes')) {
+      localStorage.setItem('estudiantes', JSON.stringify([
+        {
+          id: '20345678901',
+          password: 'Estu1234!',
+          tipo: 'estudiante',
+          estado: 'activo',
+          nombre: 'Juan Pérez',
+          email: 'juanperez@mail.com'
+        }
+      ]));
+    }
+
+    if (!localStorage.getItem('empresas')) {
+      localStorage.setItem('empresas', JSON.stringify([
+        {
+          id: '30789012345',
+          password: 'Empre123!',
+          tipo: 'empresa',
+          estado: 'activo',
+          razonSocial: 'Soluciones SA',
+          email: 'contacto@solucionessa.com'
+        }
+      ]));
+    }
+
+    if (!localStorage.getItem('administradores')) {
+      localStorage.setItem('administradores', JSON.stringify([
+        {
+          id: '11222333',
+          password: 'Admin123!',
+          tipo: 'admin',
+          estado: 'activo',
+          nombre: 'Laura Gómez',
+          email: 'laura.gomez@utn.edu.ar'
+        }
+      ]));
+    }
+
+    if (!localStorage.getItem('personalSAU')) {
+      localStorage.setItem('personalSAU', JSON.stringify([
+        {
+          dni: '11222333',
+          nombre: 'Laura',
+          apellido: 'Gómez',
+          email: 'laura.gomez@utn.edu.ar'
+        }
+      ]));
+    }
+  }, []);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/register/estudiante" element={<RegisterEstudiante />} />
+      <Route path="/register/empresa" element={<RegisterEmpresa />} />
+      <Route path="/register/admin" element={<RegisterAdmin />} />
+      <Route path="/login" element={<Login />} />
+      {/* Puedes agregar más rutas según sea necesario */}
+    </Routes>
+  );
 }
-
-export default App

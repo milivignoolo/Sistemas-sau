@@ -1,0 +1,48 @@
+/* RegisterEmpresa.css */
+
+.registro-empresa {
+    max-width: 600px;
+    margin: 0 auto;
+    background-color: #f8f9fa;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+  
+  .registro-empresa h2 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .registro-empresa form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .registro-empresa input,
+  .registro-empresa select,
+  .registro-empresa button {
+    padding: 0.6rem;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+  }
+  
+  .registro-empresa button {
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .registro-empresa button:hover {
+    background-color: #0056b3;
+  }
+  
+  .registro-empresa .error {
+    color: red;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  

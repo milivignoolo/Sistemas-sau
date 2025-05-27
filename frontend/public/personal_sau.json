@@ -1,0 +1,15 @@
+[
+    {
+      "dni": "12345678",
+      "nombre": "Juan",
+      "apellido": "Suarez",
+      "email": "juan.suarez@utn.edu.ar"
+    },
+    {
+      "dni": "87654321",
+      "nombre": "María",
+      "apellido": "Gómez",
+      "email": "maria.gomez@utn.edu.ar"
+    }
+  ]
+  
