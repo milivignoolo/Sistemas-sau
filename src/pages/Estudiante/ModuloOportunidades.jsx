@@ -2,15 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ModuloOportunidades.css';
 import Layout from "../../components/Layout";
-import estudianteMock from '../../data/EstudianteMock.json';
-import pasantiasMock from '../../data/pasantiasMock.json';
+import EstudianteMock from '../../Data/EstudianteMock.json';
+import pasantiasMock from '../../Data/pasantiasMock.json';
 
 
 export default function ModuloOportunidades() {
   const navigate = useNavigate();
   const [usuario, setUsuario] = useState(null);
   const [error, setError] = useState('');
-  const [estudiante, setEstudiante] = useState(estudianteMock);
+  const [estudiante, setEstudiante] = useState(EstudianteMock);
   const [pasantias, setPasantias] = useState(pasantiasMock);
 
   useEffect(() => {
