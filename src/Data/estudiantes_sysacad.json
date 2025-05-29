@@ -1,0 +1,27 @@
+[
+    {
+      "legajo": "123456",
+      "dni": "12345678",
+      "nombre": "Juan Pérez",
+      "estado": "activo",
+      "carrera": "Ingeniería en Sistemas",
+      "anio": 3,
+      "promedio": 7.5,
+      "materiasAprobadas": 20,
+      "materiasRegularizadas": 2,
+      "email": "juan.perez@utn.edu.ar"
+    },
+    {
+      "legajo": "654321",
+      "dni": "87654321",
+      "nombre": "Ana Gómez",
+      "estado": "egresado",
+      "carrera": "Ingeniería en Sistemas",
+      "anio": 5,
+      "promedio": 8.2,
+      "materiasAprobadas": 40,
+      "materiasRegularizadas": 0,
+      "email": "ana.gomez@utn.edu.ar"
+    }
+  ]
+  
