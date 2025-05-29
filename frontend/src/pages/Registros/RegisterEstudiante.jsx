@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './RegisterEstudiante.css';
+import Layout from '../../components/Layout';
+
 
 export default function RegisterEstudiante() {
   const [step, setStep] = useState(1);
@@ -175,6 +177,7 @@ const handlePaso3 = (e) => {
   };
 
   return (
+    <Layout showBackButton={true}>
     <section className="registro-estudiante">
       <h2>Registro de Estudiante</h2>
 
@@ -320,5 +323,6 @@ const handlePaso3 = (e) => {
 
       {error && <p className="error">{error}</p>}
     </section>
+    </Layout>
   );
 }

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Home.css';
+import Layout from '../components/Layout';
+
 
 export default function Home() {
   const [usuario, setUsuario] = useState(null);
@@ -11,7 +13,7 @@ export default function Home() {
     if (sesion) {
       setUsuario(JSON.parse(sesion));
     } else {
-      navigate('/login');
+      setUsuario(null);
     }
   }, [navigate]);
 
@@ -21,22 +23,20 @@ export default function Home() {
   };
 
   return (
-    <section className="home-container">
-      {usuario ? (
-        <>
-          <h1 className="bienvenida">
-            Bienvenido, {usuario.nombre || usuario.razonSocial} ({usuario.tipo})
-          </h1>
-          <p className="mensaje">
-            Has iniciado sesión correctamente.
-          </p>
-          <button onClick={cerrarSesion} className="btn-logout">
-            Cerrar sesión
-          </button>
-        </>
-      ) : (
-        <p className="mensaje">Cargando...</p>
-      )}
-    </section>
-  );
+    <Layout showBackButton={false}>
+      <section className="home-container">
+        {usuario ? (
+          <>
+            <h1>Bienvenido, {usuario.nombre || usuario.razonSocial} ({usuario.tipo})</h1>
+            <button onClick={cerrarSesion}>Cerrar sesión</button>
+          </>
+        ) : (
+          <>
+            <h1>Bienvenido a la página pública</h1>
+            <p>Por favor, <a href="/login">inicia sesión</a> o <a href="/register">regístrate</a>.</p>
+          </>
+        )}
+      </section>
+      </Layout>
+    );
 }

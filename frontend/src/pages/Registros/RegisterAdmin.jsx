@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './RegisterAdmin.css';
+import Layout from '../../components/Layout';
+
 
 export default function RegisterAdministrador() {
   const [step, setStep] = useState(1);
@@ -98,6 +100,7 @@ export default function RegisterAdministrador() {
   };
 
   return (
+    <Layout showBackButton={true}>
     <section className="registro-admin">
       <h2>Registro de Administrador</h2>
 
@@ -135,5 +138,6 @@ export default function RegisterAdministrador() {
 
       {error && <p className="error">{error}</p>}
     </section>
+    </Layout>
   );
 }

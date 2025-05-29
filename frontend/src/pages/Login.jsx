@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Login.css';
+import { usuarios } from '../Data/Usuarios';
+import Layout from '../components/Layout';
+
 
 const Login = () => {
   const [userId, setUserId] = useState('');
@@ -11,10 +14,7 @@ const Login = () => {
   const handleLogin = (e) => {
     e.preventDefault();
 
-    const estudiantes = JSON.parse(localStorage.getItem('estudiantes')) || [];
-    const empresas = JSON.parse(localStorage.getItem('empresas')) || [];
-    const administradores = JSON.parse(localStorage.getItem('administradores')) || [];
-
+    const { estudiantes, empresas, administradores } = usuarios;
     // Buscar usuario en cualquiera de los arrays
     const user = [...estudiantes, ...empresas, ...administradores].find(
       (u) => u.id === userId
@@ -42,9 +42,9 @@ const Login = () => {
 
     setTimeout(() => {
       if (user.tipo === 'estudiante') {
-        navigate('/inicio-estudiante');
+        navigate('/estudiante');
       } else if (user.tipo === 'empresa') {
-        navigate('/inicio-empresa');
+        navigate('/empresa');
       } else if (user.tipo === 'administrador') {
         navigate('/inicio-admin');
       } else {
@@ -54,6 +54,7 @@ const Login = () => {
   };
 
   return (
+    <Layout showBackButton={true}>
     <section className="login-container">
       <h2>Iniciar Sesión</h2>
       <form onSubmit={handleLogin}>
@@ -75,6 +76,7 @@ const Login = () => {
         {message && <p className="mensaje">{message}</p>}
       </form>
     </section>
+    </Layout>
   );
 };
 

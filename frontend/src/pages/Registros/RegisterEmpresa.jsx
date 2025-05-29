@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import './registerEmpresa.css';
+import Layout from '../../components/Layout';
+
 
 
 export default function RegisterEmpresa() {
@@ -83,7 +85,7 @@ export default function RegisterEmpresa() {
     }
     if (cuitExiste(empresa.cuit)) {
       alert('CUIT ya registrado. Se te redirige al inicio de sesión.');
-      // Aquí podés redirigir con react-router, ej: navigate('/login');
+      navigate('/login');
       return;
     }
     setStep(2);
@@ -180,6 +182,7 @@ export default function RegisterEmpresa() {
   };
 
   return (
+    <Layout showBackButton={true}>
     <section className="registro-empresa">
       <h2>Registro de Empresa</h2>
       {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -315,5 +318,6 @@ export default function RegisterEmpresa() {
         </div>
       )}
     </section>
+    </Layout>
   );
 }

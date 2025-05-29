@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import './Register.css';
+import Layout from '../../components/Layout';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ export default function Register() {
   };
 
   return (
+    <Layout showBackButton={true}>
     <section className="register-section">
       <h2 className="register-title">Registrarse como:</h2>
       <div className="register-button-group">
@@ -23,5 +25,6 @@ export default function Register() {
         </button>
       </div>
     </section>
+    </Layout>
   );
 }

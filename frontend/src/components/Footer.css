@@ -1,0 +1,14 @@
+.main-footer {
+    background-color: #005691;
+    padding: 1rem 2rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #ffffff;
+}
+
+.main-footer ul {
+    list-style: none; /* 🔹 Quita los puntos */
+    padding: 0;        /* 🔹 Opcional: quita el margen interno de la lista */
+    margin: 0;         /* 🔹 Opcional: quita el margen externo de la lista */
+}
+  

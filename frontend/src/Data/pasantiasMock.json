@@ -1,0 +1,35 @@
+[
+  {
+    "id": "pas1",
+    "titulo": "Desarrollador Frontend React",
+    "descripcion": "Colaborar en el desarrollo de una aplicación web usando React.",
+    "empresaId": "emp123",
+    "area": "Desarrollo",
+    "vacantes": 2,
+    "fechaInicio": "2025-08-01",
+    "fechaFin": "2025-12-01",
+    "remuneracion": "A convenir",
+    "modalidad": "Remoto",
+    "ubicacion": "Buenos Aires",
+    "duracion": "4 meses",
+    "horasPorSemana": 20,
+    "horarios": "Lunes a Viernes de 9 a 13hs",
+    "tareas": "Desarrollar y testear componentes",
+    "carreras": ["Ingeniería en Sistemas de Información"],
+    "anioCursado": 3,
+    "habilidadesBlandas": {
+      "Comunicación": true,
+      "Trabajo en equipo": true
+    },
+    "habilidadesTecnicas": {
+      "JavaScript": true,
+      "React": true
+    },
+    "idiomas": {
+      "Inglés": true
+    },
+    "experiencia": "No requerida",
+    "urgencia": 2,
+    "estado": "pendiente"
+  }
+]
