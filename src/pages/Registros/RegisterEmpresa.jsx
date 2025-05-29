@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import './registerEmpresa.css';
+import './RegisterEmpresa.css';
 import Layout from '../../components/Layout';
 
 
