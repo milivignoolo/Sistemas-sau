@@ -22,6 +22,19 @@
       "materiasAprobadas": 40,
       "materiasRegularizadas": 0,
       "email": "ana.gomez@utn.edu.ar"
+    },
+
+    {
+      "legajo": "16670",
+      "dni": "45937416",
+      "nombre": "Milagros",
+      "estado": "activo",
+      "carrera": "Ingeniería en Sistemas",
+      "anio": 5,
+      "promedio": 7,
+      "materiasAprobadas": 37,
+      "materiasRegularizadas": 2,
+      "email": "mili@utn.edu.ar"
     }
   ]
   

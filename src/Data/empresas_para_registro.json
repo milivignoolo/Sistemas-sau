@@ -1,7 +1,10 @@
 [
-    {
-      "cuit": "30123456789",
-      "razonSocial": "Tech Innovators SA"
-    }
-  ]
-  
+  {
+    "cuit": "30511222334",
+    "razonSocial": "Innovar S.A."
+  },
+  {
+    "cuit": "30666777888",
+    "razonSocial": "Desarrollos Globales SRL"
+  }
+]
