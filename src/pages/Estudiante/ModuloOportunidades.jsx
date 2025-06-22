@@ -2,16 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ModuloOportunidades.css';
 import Layout from "../../components/Layout";
-import EstudianteMock from '../../Data/EstudianteMock.json';
-import pasantiasMock from '../../Data/pasantiasMock.json';
-
 
 export default function ModuloOportunidades() {
   const navigate = useNavigate();
   const [usuario, setUsuario] = useState(null);
   const [error, setError] = useState('');
-  const [estudiante, setEstudiante] = useState(EstudianteMock);
-  const [pasantias, setPasantias] = useState(pasantiasMock);
+  const [estudiante, setEstudiante] = useState(null);
+  const [pasantias, setPasantias] = useState([]);
+
+  // Cargar datos estáticos desde public/
+  useEffect(() => {
+    // Cargar estudianteMock.json
+    fetch('/EstudianteMock.json')
+      .then(res => {
+        if (!res.ok) throw new Error('No se pudo cargar estudianteMock.json');
+        return res.json();
+      })
+      .then(data => setEstudiante(data))
+      .catch(() => setEstudiante(null));
+
+    // Cargar pasantiasMock.json
+    fetch('/pasantiasMock.json')
+      .then(res => {
+        if (!res.ok) throw new Error('No se pudo cargar pasantiasMock.json');
+        return res.json();
+      })
+      .then(data => setPasantias(data))
+      .catch(() => setPasantias([]));
+  }, []);
 
   useEffect(() => {
     const actual = JSON.parse(localStorage.getItem('usuarioActual'));
@@ -29,7 +47,7 @@ export default function ModuloOportunidades() {
     setUsuario(actual);
 
     try {
-      const todas = JSON.parse(localStorage.getItem('pasantias')) || [];
+      const todas = JSON.parse(localStorage.getItem('pasantias')) || pasantias;
 
       const calcularCoincidencia = (p) => {
         let puntos = 0;
@@ -82,31 +100,34 @@ export default function ModuloOportunidades() {
     } catch (err) {
       setError('Error al cargar las pasantías desde la base de datos.');
     }
-  }, [navigate]);
+  }, [navigate, pasantias]);
 
   return (
     <Layout showBackButton={true}>
-    <section className="modulo-oportunidades">
-      <h2>Oportunidades de Pasantías</h2>
-      {error && <p className="error">{error}</p>}
+      <section className="modulo-oportunidades">
+        <h2>Oportunidades de Pasantías</h2>
+        {error && <p className="error">{error}</p>}
 
-      <ul className="lista-pasantias">
-        {pasantias.map(p => (
-          <li key={p.id} className="card-pasantia">
-            <h3>{p.titulo}</h3>
-            <p><strong>Empresa:</strong> {p.empresa}</p>
-            <p><strong>Ubicación:</strong> {p.ubicacion}</p>
-            <p><strong>Modalidad:</strong> {p.modalidad}</p>
-            <p><strong>Coincidencia:</strong> {p.coincidencia}% - {p.etiquetaCoincidencia}</p>
-            {(p.etiquetaCoincidencia === 'Alta' || p.etiquetaCoincidencia === 'Perfecta') ? (
-              <button onClick={() => alert('Postulación enviada.')}>Postularse</button>
-            ) : (
-              <button disabled>Coincidencia insuficiente</button>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
+        {!estudiante && <p>Cargando datos del estudiante...</p>}
+
+        <ul className="lista-pasantias">
+          {pasantias.length === 0 && <li>No hay pasantías disponibles.</li>}
+          {pasantias.map(p => (
+            <li key={p.id} className="card-pasantia">
+              <h3>{p.titulo}</h3>
+              <p><strong>Empresa:</strong> {p.empresa}</p>
+              <p><strong>Ubicación:</strong> {p.ubicacion}</p>
+              <p><strong>Modalidad:</strong> {p.modalidad}</p>
+              <p><strong>Coincidencia:</strong> {p.coincidencia}% - {p.etiquetaCoincidencia}</p>
+              {(p.etiquetaCoincidencia === 'Alta' || p.etiquetaCoincidencia === 'Perfecta') ? (
+                <button onClick={() => alert('Postulación enviada.')}>Postularse</button>
+              ) : (
+                <button disabled>Coincidencia insuficiente</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
     </Layout>
   );
 }
