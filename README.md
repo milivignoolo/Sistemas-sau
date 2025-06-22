@@ -1,29 +1,35 @@
+# Sistema de Registro de Pasantías
 
-URL Drive con documentos anexo:
+📎 URL Drive con documentos anexo:  
 https://drive.google.com/drive/folders/1wEoQnRwwRDgLHCD3BuYBEhcCA3k8blBz?usp=sharing
 
-URL implementacion:
+🌐 URL de implementación:  
 https://sistemas-sau.vercel.app/
 
-# Guía de Uso - Sistema de Login y Registro para Pasantías
+## 🔐 Usuarios para iniciar sesión
 
-Este documento explica cómo funcionan los procesos de login y registro para estudiantes, empresas y administradores en el sistema, incluyendo los archivos de datos necesarios y las validaciones.
+👨‍🎓 Estudiante  
+- Usuario: 20345678901  
+- Contraseña: Estu1234!
 
----
+🏢 Empresa  
+- Usuario: 30711556678  
+- Contraseña: Ejemplo123$
 
-## Usuarios para Login
+👩‍💼 Administrador  
+- Usuario: 11222333  
+- Contraseña: Admin123!
 
-| Tipo           | ID / Usuario      | Contraseña     | Notas                   |
-|----------------|-------------------|----------------|-------------------------|
-| Estudiante     | `20345678901`     | `Estu1234!`    | CUIT de estudiante      |
-| Empresa        | `30711556678`     | `Ejemplo123$`  | CUIT de empresa         |
-| Administrador  | `11222333`        | `Admin123!`    | DNI del administrador   |
+## 📝 Registro
 
----
+✔ Estudiantes: legajo: 12345, dni: 30123456 
+✔ Administradores: nombre: Juan, apellido: Suarez, dni: 12345678
+✔ Empresas: se permite registrar cualquier CUIT que **no esté en empresas.json**.
 
-## Registro de Estudiante
+⚙️ Este sistema no usa backend ni base de datos real.  
+Todo se gestiona localmente con archivos `.json` y `localStorage`.
 
-El registro de estudiantes valida el legajo y DNI contra el archivo:
+
 
 
 

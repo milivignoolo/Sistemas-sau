@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import './RegisterEstudiante.css';
 import Layout from '../../components/Layout';
 
-
 export default function RegisterEstudiante() {
   const [step, setStep] = useState(1);
   const [error, setError] = useState('');
@@ -13,13 +12,32 @@ export default function RegisterEstudiante() {
   const [codigo, setCodigo] = useState('');
   const [codigoGenerado, setCodigoGenerado] = useState('');
   const [tiempoRestante, setTiempoRestante] = useState(300);
+  const [intentosCodigo, setIntentosCodigo] = useState(0);
+  const maxIntentosCodigo = 3;
   const [password, setPassword] = useState('');
+  const [usarOtroEmail, setUsarOtroEmail] = useState(false);
+  const [emailEditable, setEmailEditable] = useState('');
+  const [datosAdicionales, setDatosAdicionales] = useState({
+    disponibilidad: '',
+    tecnicas: {},
+    blandas: {},
+    experiencia: '',
+    idiomas: {},
+  });
+
   const navigate = useNavigate();
 
-  // Temporizador para el código
+  const niveles = ['Básico', 'Intermedio', 'Avanzado'];
+
+  const habilidadesOpciones = {
+    tecnicas: ['Programación', 'Bases de Datos', 'Redes', 'Seguridad'],
+    blandas: ['Comunicación', 'Trabajo en equipo', 'Liderazgo', 'Creatividad'],
+    idiomas: ['Inglés', 'Español', 'Francés', 'Alemán'],
+  };
+
   useEffect(() => {
-    if (step === 2 && tiempoRestante > 0) {
-      const timer = setTimeout(() => setTiempoRestante(tiempoRestante - 1), 1000);
+    if (step === 3 && tiempoRestante > 0) {
+      const timer = setTimeout(() => setTiempoRestante(t => t - 1), 1000);
       return () => clearTimeout(timer);
     }
   }, [tiempoRestante, step]);
@@ -62,97 +80,122 @@ export default function RegisterEstudiante() {
       }
 
       setEstudiante(encontrado);
-      const nuevoCodigo = Math.floor(100000 + Math.random() * 900000).toString();
-      setCodigoGenerado(nuevoCodigo);
-      setTiempoRestante(300);
-      console.log('Código enviado:', nuevoCodigo); // Simula envío
+      setUsarOtroEmail(false);
+      setEmailEditable('');
       setStep(2);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setError('Error al verificar los datos. Intente más tarde.');
     }
+  };
+
+  const handleEnviarCodigo = (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (usarOtroEmail) {
+      if (!/\S+@\S+\.\S+/.test(emailEditable)) {
+        setError('Email alternativo inválido.');
+        return;
+      }
+      setEstudiante(prev => ({ ...prev, email: emailEditable }));
+    }
+
+    const nuevoCodigo = Math.floor(100000 + Math.random() * 900000).toString();
+    setCodigoGenerado(nuevoCodigo);
+    setTiempoRestante(300);
+    setIntentosCodigo(0);
+    setCodigo('');
+    console.log('Código enviado:', nuevoCodigo);
+    setStep(3);
   };
 
   const handleVerificarCodigo = (e) => {
     e.preventDefault();
     const codigoIngresado = codigo.trim();
+
     if (tiempoRestante <= 0) {
       setError('Tiempo agotado. Reenviá el código.');
-    } else if (codigoIngresado !== codigoGenerado) {
-      setError('El código es incorrecto.');
-    } else {
-      setError('');
-      setStep(3);
+      return;
     }
+
+    if (codigoIngresado !== codigoGenerado) {
+      const nuevosIntentos = intentosCodigo + 1;
+      setIntentosCodigo(nuevosIntentos);
+
+      if (nuevosIntentos >= maxIntentosCodigo) {
+        setError('Se alcanzó el número máximo de intentos.');
+      } else {
+        setError('El código es incorrecto.');
+      }
+      return;
+    }
+
+    setError('');
+    setStep(4);
   };
 
- // En el componente RegisterEstudiante:
-
-const niveles = ['Básico', 'Intermedio', 'Avanzado'];
-
-const habilidadesOpciones = {
-  tecnicas: ['Programación', 'Bases de Datos', 'Redes', 'Seguridad'],
-  blandas: ['Comunicación', 'Trabajo en equipo', 'Liderazgo', 'Creatividad'],
-  idiomas: ['Inglés', 'Español', 'Francés', 'Alemán'],
-};
-
-
-const [datosAdicionales, setDatosAdicionales] = useState({
-  disponibilidad: '',
-  tecnicas: {},
-  blandas: {},
-  experiencia: '',
-  idiomas: {},
-});
-
-const toggleHabilidad = (categoria, habilidad) => {
-  setDatosAdicionales(prev => {
-    const categoriaActual = { ...prev[categoria] };
-    if (categoriaActual[habilidad]) {
-      // Si ya está seleccionada, la quitamos
-      delete categoriaActual[habilidad];
-    } else {
-      // Si no, la agregamos con nivel básico por defecto
-      categoriaActual[habilidad] = 'Básico';
+  const handleReenviarCodigo = () => {
+    if (intentosCodigo >= maxIntentosCodigo) {
+      setError('No se puede reenviar más códigos.');
+      return;
     }
-    return { ...prev, [categoria]: categoriaActual };
-  });
-};
 
-const cambiarNivel = (categoria, habilidad, nivel) => {
-  setDatosAdicionales(prev => {
-    const categoriaActual = { ...prev[categoria] };
-    categoriaActual[habilidad] = nivel;
-    return { ...prev, [categoria]: categoriaActual };
-  });
-};
+    const nuevoCodigo = Math.floor(100000 + Math.random() * 900000).toString();
+    setCodigoGenerado(nuevoCodigo);
+    setTiempoRestante(300);
+    setCodigo('');
+    setIntentosCodigo(prev => prev + 1);
+    console.log('Nuevo código reenviado:', nuevoCodigo);
+  };
 
-const handlePaso3 = (e) => {
+  const toggleHabilidad = (categoria, habilidad) => {
+    setDatosAdicionales(prev => {
+      const categoriaActual = { ...prev[categoria] };
+      if (categoriaActual[habilidad]) {
+        delete categoriaActual[habilidad];
+      } else {
+        categoriaActual[habilidad] = 'Básico';
+      }
+      return { ...prev, [categoria]: categoriaActual };
+    });
+  };
+
+  const cambiarNivel = (categoria, habilidad, nivel) => {
+    setDatosAdicionales(prev => {
+      const categoriaActual = { ...prev[categoria] };
+      categoriaActual[habilidad] = nivel;
+      return { ...prev, [categoria]: categoriaActual };
+    });
+  };
+
+  const handlePaso4 = (e) => {
     e.preventDefault();
     setError('');
-  
+
     if (!datosAdicionales.disponibilidad.trim()) {
       setError('Por favor, completá la disponibilidad horaria.');
       return;
     }
-  
+
     const tieneHabilidadSeleccionada =
       Object.keys(datosAdicionales.tecnicas).length > 0 ||
       Object.keys(datosAdicionales.blandas).length > 0 ||
       Object.keys(datosAdicionales.idiomas).length > 0;
-  
+
     if (!tieneHabilidadSeleccionada) {
       setError('Seleccioná al menos una habilidad técnica, blanda o idioma.');
       return;
     }
-  
+
     if (!datosAdicionales.experiencia.trim()) {
       setError('Por favor, completá la experiencia previa.');
       return;
     }
-  
-    setStep(4);
+
+    setStep(5);
   };
-  
+
   const handleRegistrar = (e) => {
     e.preventDefault();
     const valido = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(password);
@@ -165,7 +208,7 @@ const handlePaso3 = (e) => {
       ...estudiante,
       ...datosAdicionales,
       legajo,
-      password, // Simulación: se guarda como texto plano
+      password,
       username: legajo,
     };
 
@@ -176,153 +219,165 @@ const handlePaso3 = (e) => {
     navigate('/');
   };
 
+  const handleBorrarRegistros = () => {
+    localStorage.removeItem('usuariosRegistrados');
+    alert('Registros borrados. Ya podés volver a registrarte con los mismos datos.');
+  };
+
   return (
     <Layout showBackButton={true}>
-    <section className="registro-estudiante">
-      <h2>Registro de Estudiante</h2>
+      <section className="registro-estudiante">
+        <h2>Registro de Estudiante</h2>
 
-      {step === 1 && (
-        <form onSubmit={handlePaso1}>
-          <input type="text" placeholder="Legajo" value={legajo} onChange={e => setLegajo(e.target.value)} required />
-          <input type="text" placeholder="DNI" value={dni} onChange={e => setDni(e.target.value)} required />
-          <button type="submit">Verificar identidad</button>
-        </form>
-      )}
+        {step === 1 && (
+          <form onSubmit={handlePaso1}>
+            <input type="text" placeholder="Legajo" value={legajo} onChange={e => setLegajo(e.target.value)} required />
+            <input type="text" placeholder="DNI" value={dni} onChange={e => setDni(e.target.value)} required />
+            <button type="submit">Verificar identidad</button>
+          </form>
+        )}
 
-      {step === 2 && (
-        <form onSubmit={handleVerificarCodigo}>
-          <p>Se envió un código al correo institucional. Ingresalo aquí:</p>
-          <input type="text" placeholder="Código de verificación" value={codigo} onChange={e => setCodigo(e.target.value)} required />
-          <p>Tiempo restante: {Math.floor(tiempoRestante / 60)}:{(tiempoRestante % 60).toString().padStart(2, '0')}</p>
-          {/* Mostrar código en pantalla para test */}
-    <p><small><i>Código para test: <strong>{codigoGenerado}</strong></i></small></p>
-          <button type="submit">Verificar código</button>
-        </form>
-      )}
+        {step === 2 && (
+          <div className="resumen-estudiante">
+            <h3>Datos verificados</h3>
+            <p><strong>Nombre:</strong> {estudiante?.nombre}</p>
+            <p><strong>Carrera:</strong> {estudiante?.carrera}</p>
+            <p><strong>Año:</strong> {estudiante?.anio}</p>
+            <p><strong>Promedio:</strong> {estudiante?.promedio}</p>
+            <p><strong>Materias aprobadas:</strong> {estudiante?.materiasAprobadas}</p>
+            <p><strong>Materias regularizadas:</strong> {estudiante?.materiasRegularizadas}</p>
+            <p><strong>Email institucional:</strong> {estudiante?.email}</p>
 
-{step === 3 && (
-  <form onSubmit={handlePaso3}>
-    <input
-      type="text"
-      placeholder="Disponibilidad horaria"
-      value={datosAdicionales.disponibilidad}
-      onChange={e => setDatosAdicionales({ ...datosAdicionales, disponibilidad: e.target.value })}
-      required
-    />
+            <label>
+              <input
+                type="checkbox"
+                checked={usarOtroEmail}
+                onChange={(e) => {
+                  setUsarOtroEmail(e.target.checked);
+                  if (!e.target.checked) setEmailEditable('');
+                }}
+              />
+              Quiero usar otro email
+            </label>
 
-    {/* Habilidades Técnicas */}
-    <fieldset>
-      <legend>Habilidades técnicas</legend>
-      {habilidadesOpciones.tecnicas.map(habilidad => (
-        <div key={habilidad}>
-          <label>
+            {usarOtroEmail && (
+              <input
+                type="email"
+                placeholder="Ingresá otro correo"
+                value={emailEditable}
+                onChange={(e) => setEmailEditable(e.target.value)}
+                required
+              />
+            )}
+
+            <button onClick={handleEnviarCodigo} style={{ marginTop: '1rem' }}>
+              Enviar código de verificación
+            </button>
+          </div>
+        )}
+
+        {step === 3 && (
+          <form onSubmit={handleVerificarCodigo}>
+            <p>Se envió un código al correo institucional. Ingresalo aquí:</p>
             <input
-              type="checkbox"
-              checked={!!datosAdicionales.tecnicas[habilidad]}
-              onChange={() => toggleHabilidad('tecnicas', habilidad)}
+              type="text"
+              placeholder="Código de verificación"
+              value={codigo}
+              onChange={e => setCodigo(e.target.value)}
+              required
             />
-            {habilidad}
-          </label>
-
-          {datosAdicionales.tecnicas[habilidad] && (
-            <select
-              value={datosAdicionales.tecnicas[habilidad]}
-              onChange={e => cambiarNivel('tecnicas', habilidad, e.target.value)}
+            <p>Tiempo restante: {Math.floor(tiempoRestante / 60)}:{(tiempoRestante % 60).toString().padStart(2, '0')}</p>
+            <p><small><i>Código para test: <strong>{codigoGenerado}</strong></i></small></p>
+            <button type="submit">Verificar código</button>
+            <button
+              type="button"
+              onClick={handleReenviarCodigo}
+              disabled={intentosCodigo >= maxIntentosCodigo}
+              style={{ marginLeft: '10px' }}
             >
-              {niveles.map(nivel => (
-                <option key={nivel} value={nivel}>{nivel}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      ))}
-    </fieldset>
+              Reenviar código
+            </button>
+          </form>
+        )}
 
-    {/* Habilidades Blandas */}
-    <fieldset>
-      <legend>Habilidades blandas</legend>
-      {habilidadesOpciones.blandas.map(habilidad => (
-        <div key={habilidad}>
-          <label>
+        {step === 4 && (
+          <form onSubmit={handlePaso4}>
             <input
-              type="checkbox"
-              checked={!!datosAdicionales.blandas[habilidad]}
-              onChange={() => toggleHabilidad('blandas', habilidad)}
+              type="text"
+              placeholder="Disponibilidad horaria"
+              value={datosAdicionales.disponibilidad}
+              onChange={e => setDatosAdicionales({ ...datosAdicionales, disponibilidad: e.target.value })}
+              required
             />
-            {habilidad}
-          </label>
 
-          {datosAdicionales.blandas[habilidad] && (
-            <select
-              value={datosAdicionales.blandas[habilidad]}
-              onChange={e => cambiarNivel('blandas', habilidad, e.target.value)}
-            >
-              {niveles.map(nivel => (
-                <option key={nivel} value={nivel}>{nivel}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      ))}
-    </fieldset>
+            {['tecnicas', 'blandas', 'idiomas'].map(cat => (
+              <fieldset key={cat}>
+                <legend>Habilidades {cat}</legend>
+                {habilidadesOpciones[cat].map(habilidad => (
+                  <div key={habilidad}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={!!datosAdicionales[cat][habilidad]}
+                        onChange={() => toggleHabilidad(cat, habilidad)}
+                      />
+                      {habilidad}
+                    </label>
+                    {datosAdicionales[cat][habilidad] && (
+                      <select
+                        value={datosAdicionales[cat][habilidad]}
+                        onChange={e => cambiarNivel(cat, habilidad, e.target.value)}
+                      >
+                        {niveles.map(nivel => (
+                          <option key={nivel} value={nivel}>{nivel}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ))}
+              </fieldset>
+            ))}
 
-    {/* Idiomas */}
-    <fieldset>
-      <legend>Idiomas</legend>
-      {habilidadesOpciones.idiomas.map(idioma => (
-        <div key={idioma}>
-          <label>
             <input
-              type="checkbox"
-              checked={!!datosAdicionales.idiomas[idioma]}
-              onChange={() => toggleHabilidad('idiomas', idioma)}
+              type="text"
+              placeholder="Experiencia previa"
+              value={datosAdicionales.experiencia}
+              onChange={e => setDatosAdicionales({ ...datosAdicionales, experiencia: e.target.value })}
+              required
             />
-            {idioma}
-          </label>
 
-          {datosAdicionales.idiomas[idioma] && (
-            <select
-              value={datosAdicionales.idiomas[idioma]}
-              onChange={e => cambiarNivel('idiomas', idioma, e.target.value)}
-            >
-              {niveles.map(nivel => (
-                <option key={nivel} value={nivel}>{nivel}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      ))}
-    </fieldset>
+            <button type="submit">Siguiente</button>
+          </form>
+        )}
 
-    {/* Experiencia previa */}
-    <input
-      type="text"
-      placeholder="Experiencia previa"
-      value={datosAdicionales.experiencia}
-      onChange={e => setDatosAdicionales({ ...datosAdicionales, experiencia: e.target.value })}
-      required
-    />
+        {step === 5 && (
+          <form onSubmit={handleRegistrar}>
+            <input
+              type="password"
+              placeholder="Crear contraseña segura"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
+            <button type="submit">Finalizar registro</button>
+          </form>
+        )}
 
-    <button type="submit">Siguiente</button>
-  </form>
-)}
+        {error && <p className="error">{error}</p>}
 
-
-      {step === 4 && (
-        <form onSubmit={handleRegistrar}>
-          <input
-            type="password"
-            placeholder="Crear contraseña segura"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-          />
-          <button type="submit">Finalizar registro</button>
-        </form>
-      )}
-
-      {error && <p className="error">{error}</p>}
-    </section>
+        <p style={{ textAlign: 'center', marginTop: '2rem' }}>
+          <button onClick={handleBorrarRegistros} style={{
+            fontSize: '0.85rem',
+            background: 'none',
+            color: '#666',
+            border: 'none',
+            textDecoration: 'underline',
+            cursor: 'pointer'
+          }}>
+            🧹 Borrar registros guardados (para testear de nuevo)
+          </button>
+        </p>
+      </section>
     </Layout>
   );
 }

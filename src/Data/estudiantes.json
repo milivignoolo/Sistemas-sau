@@ -1,0 +1,19 @@
+[
+    {
+      "legajo": "12345",
+      "dni": "45678901",
+      "nombre": "Juan Pérez",
+      "email": "juan.perez@frba.utn.edu.ar",
+      "estado": "activo",
+      "yaRegistrado": false
+    },
+    {
+      "legajo": "23456",
+      "dni": "50123456",
+      "nombre": "Lucía Gómez",
+      "email": "lucia.gomez@frba.utn.edu.ar",
+      "estado": "egresado",
+      "yaRegistrado": false
+    }
+  ]
+  

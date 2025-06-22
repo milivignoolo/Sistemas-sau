@@ -1,4 +1,4 @@
-// src/data/usuarios.js (por ejemplo)
+
 export const usuarios = {
     estudiantes: [
       {
@@ -24,7 +24,7 @@ export const usuarios = {
       {
         id: '11222333',
         password: 'Admin123!',
-        tipo: 'administrador',  // Cambié 'admin' a 'administrador' para homogeneidad
+        tipo: 'administrador',  
         estado: 'activo',
         nombre: 'Laura Gómez',
         email: 'laura.gomez@utn.edu.ar'
