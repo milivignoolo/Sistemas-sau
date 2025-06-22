@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import empresasRegistradas from '../../data/empresas.json'; // empresas ya registradas oficialmente
 import Layout from '../../components/Layout';
 import './RegisterEmpresa.css';
 
@@ -26,6 +25,17 @@ export default function RegisterEmpresa() {
     redesSociales: '',
     password: '',
   });
+
+  const [empresasRegistradas, setEmpresasRegistradas] = useState([]);
+
+  // Cargar empresas desde public/empresas.json
+  useEffect(() => {
+    fetch('/empresas.json')
+      .then(res => res.json())
+      .then(data => setEmpresasRegistradas(data))
+      .catch(() => setEmpresasRegistradas([]));
+  }, []);
+
 
   const handlePaso1 = (e) => {
     e.preventDefault();
