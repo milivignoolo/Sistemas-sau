@@ -22,7 +22,7 @@ https://sistemas-sau.vercel.app/
 
 ## 📝 Registro
 
-✔ Estudiantes: legajo: 12345, dni: 30123456 
+✔ Estudiantes: legajo: 12345, dni: 45678901 
 
 ✔ Administradores: nombre: Juan, apellido: Suarez, dni: 12345678
 
