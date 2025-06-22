@@ -23,7 +23,9 @@ https://sistemas-sau.vercel.app/
 ## 📝 Registro
 
 ✔ Estudiantes: legajo: 12345, dni: 30123456 
+
 ✔ Administradores: nombre: Juan, apellido: Suarez, dni: 12345678
+
 ✔ Empresas: se permite registrar cualquier CUIT que **no esté en empresas.json**.
 
 ⚙️ Este sistema no usa backend ni base de datos real.  
