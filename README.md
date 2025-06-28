@@ -26,7 +26,7 @@ https://sistemas-sau.vercel.app/
 
 ✔ Administradores: nombre: Juan, apellido: Suarez, dni: 12345678
 
-✔ Empresas: se permite registrar cualquier CUIT que **no esté en empresas.json**.
+✔ Empresas: se permite registrar cualquier CUIT que **no esté en empresas.json**.Por ejemplo 30711556678.
 
 ⚙️ Este sistema no usa backend ni base de datos real.  
 Todo se gestiona localmente con archivos `.json` y `localStorage`.
