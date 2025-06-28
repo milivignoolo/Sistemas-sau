@@ -60,7 +60,7 @@ const Login = () => {
       <form onSubmit={handleLogin}>
         <input
           type="text"
-          placeholder="CUIL / CUIT / DNI"
+          placeholder="ID"
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
           required
