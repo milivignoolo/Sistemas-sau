@@ -9,15 +9,15 @@ https://sistemas-sau.vercel.app/
 ## 🔐 Usuarios para iniciar sesión
 
 👨‍🎓 Estudiante  
-- Usuario: 20345678901  
+- ID: 20345678901  
 - Contraseña: Estu1234!
 
 🏢 Empresa  
-- Usuario: 30711556678  
+- ID: 30711556678  
 - Contraseña: Ejemplo123$
 
 👩‍💼 Administrador  
-- Usuario: 11222333  
+- ID: 11222333  
 - Contraseña: Admin123!
 
 ## 📝 Registro
